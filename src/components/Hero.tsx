@@ -1,8 +1,19 @@
 
 import { ArrowRight, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 export const Hero = () => {
+  const { toast } = useToast();
+
+  const handleLaunch = () => {
+    toast({
+      title: "Coming Soon! 👻",
+      description: "Anonymous token launching will be available shortly. Stay tuned!",
+      className: "bg-ghost-dark border border-ghost-primary/20",
+    });
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-ghost-dark">
       <div className="absolute inset-0 z-0">
@@ -34,6 +45,7 @@ export const Hero = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-up" style={{ animationDelay: '0.3s' }}>
             <Button
+              onClick={handleLaunch}
               className="px-8 py-6 bg-gradient-to-r from-ghost-primary to-ghost-secondary hover:opacity-90 transition-all duration-200 text-ghost-darker font-semibold text-lg rounded-xl"
             >
               Launch Anonymously
