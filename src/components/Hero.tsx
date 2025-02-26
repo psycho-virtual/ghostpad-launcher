@@ -16,6 +16,14 @@ export const Hero = () => {
             <span className="text-sm font-medium">Secure & Anonymous Token Launching</span>
           </div>
           
+          <div className="flex justify-center mb-8">
+            <img 
+              src="/lovable-uploads/7d66390b-8ab7-438f-b1a2-fa23f9c345ed.png" 
+              alt="GhostPad Logo" 
+              className="w-32 h-32 animate-fade-in"
+            />
+          </div>
+          
           <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-ghost-primary to-ghost-secondary animate-fade-up">
             GhostPad
           </h1>
