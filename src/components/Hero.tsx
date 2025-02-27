@@ -1,9 +1,9 @@
-
+import React from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
-export const Hero = () => {
+export const Hero: React.FC = () => {
   const { toast } = useToast();
 
   const handleLaunch = () => {
@@ -25,14 +25,6 @@ export const Hero = () => {
                 <Shield className="w-4 h-4 mr-2" />
                 <span className="text-sm font-medium">Secure & Anonymous Token Launching</span>
               </div>
-              
-              <div className="flex justify-center mb-4">
-                <img 
-                  src="/lovable-uploads/7d66390b-8ab7-438f-b1a2-fa23f9c345ed.png" 
-                  alt="GhostPad Logo" 
-                  className="w-24 h-24"
-                />
-              </div>
 
               <h1 className="text-4xl font-extrabold text-yellow-500 -rotate-2 mb-2">
                 GhostPad
@@ -43,7 +35,6 @@ export const Hero = () => {
                 </p>
               </div>
             </div>
-
             {/* Theme Buttons */}
             <div className="flex flex-wrap justify-center gap-2 mb-6">
               {['Pepe Season', 'AI Tokens', 'GameFi', 'Meme Coins'].map((theme) => (
@@ -56,7 +47,6 @@ export const Hero = () => {
                 </button>
               ))}
             </div>
-
             {/* Console Section */}
             <div className="bg-black p-6 rounded-lg border-4 border-orange-500 font-mono">
               <div className="mb-6 space-y-4">
@@ -69,15 +59,21 @@ export const Hero = () => {
                   Launch tokens with complete privacy on Solana
                 </div>
               </div>
-
               {/* Input Section */}
               <div className="bg-gray-800 p-4 rounded-lg border-4 border-orange-500 flex gap-4">
                 <Button
                   onClick={handleLaunch}
                   className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-mono py-6"
                 >
-                  Launch Anonymously
+                  Launch Application
                   <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                <Button
+                  onClick={() => window.open('./Public/whitepaper.pdf', '_blank')}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-mono py-6"
+                >
+                  Learn More
+                  <Shield className="ml-2 h-5 w-5" />
                 </Button>
               </div>
             </div>
@@ -87,3 +83,5 @@ export const Hero = () => {
     </section>
   );
 };
+
+// No default export, using named export instead
