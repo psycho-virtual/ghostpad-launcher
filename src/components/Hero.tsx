@@ -15,9 +15,9 @@ export const Hero: React.FC = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-ghost-dark">
-      <div className="w-full max-w-4xl mx-auto px-4">
-        <div className="bg-gradient-to-b from-orange-500 to-yellow-500 p-8 rounded-xl animate-fade-in">
+    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-ghost-dark">
+      <div className="w-full max-w-4xl mx-auto px-4 flex-grow flex items-center">
+        <div className="bg-gradient-to-b from-orange-500 to-yellow-500 p-8 rounded-xl animate-fade-in w-full">
           <div className="bg-gray-900 rounded-xl p-6 border-8 border-yellow-500 shadow-2xl">
             {/* Header Section */}
             <div className="text-center mb-8">
@@ -80,6 +80,8 @@ export const Hero: React.FC = () => {
           </div>
         </div>
       </div>
+
+
     </section>
   );
 };
