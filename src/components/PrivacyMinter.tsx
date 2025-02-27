@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Terminal, Shield, Coins, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
-const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
+const PrivacyMinter = ({ onClose }) => {
   const [mode, setMode] = useState('deposit'); // deposit or mint
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(1); // Fixed at 1 ETH
   const [tokenName, setTokenName] = useState('');
-  const [tokenSupply, setTokenSupply] = useState('');
+  const [tokenTicker, setTokenTicker] = useState('');
+  const [tokenDescription, setTokenDescription] = useState('');
+  const [tokenTwitter, setTokenTwitter] = useState('');
+  const [tokenWebsite, setTokenWebsite] = useState('');
+  const [tokenTelegram, setTokenTelegram] = useState('');
+  const [tokenImage, setTokenImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [commitment, setCommitment] = useState('');
   const [output, setOutput] = useState([
@@ -15,8 +20,30 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
     { content: 'Ready for anonymous operations', type: 'system' }
   ]);
 
+  const outputEndRef = useRef(null);
+
   const addOutput = (content, type = 'system', isError = false, isSuccess = false) => {
     setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
+  };
+
+  // Auto-scroll to the bottom when new output is added
+  useEffect(() => {
+    if (outputEndRef.current) {
+      outputEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [output]);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Preview the image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTokenImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+      addOutput(`Token image selected: ${file.name}`, 'input');
+    }
   };
 
   const generateDeposit = async () => {
@@ -50,9 +77,16 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
 
   const generateMintProof = async () => {
     setLoading(true);
-    addOutput(`Generating ZK proof for ${tokenName}...`, 'input');
+    addOutput(`Generating ZK proof for ${tokenName} (${tokenTicker})...`, 'input');
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
+      const missingFields = [];
+      if (!tokenImage) missingFields.push('token image');
+
+      if (missingFields.length > 0) {
+        addOutput(`Warning: Missing optional fields: ${missingFields.join(', ')}`, 'system');
+      }
+
       addOutput('Zero-knowledge proof generated', 'system', false, true);
       setStep(2);
     } catch (error) {
@@ -66,7 +100,7 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
     addOutput('Submitting mint transaction via relayer...', 'input');
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      addOutput(`Token ${tokenName} minted successfully!`, 'system', false, true);
+      addOutput(`Token ${tokenName} (${tokenTicker}) minted successfully!`, 'system', false, true);
       setStep(3);
     } catch (error) {
       addOutput('Error minting token', 'system', true);
@@ -179,30 +213,143 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-ghost-primary">MINT TOKEN</h3>
-                  <input
-                    placeholder="Token Name"
-                    value={tokenName}
-                    onChange={(e) => setTokenName(e.target.value)}
-                    disabled={step !== 1}
-                    className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Token Supply"
-                    value={tokenSupply}
-                    onChange={(e) => setTokenSupply(e.target.value)}
-                    disabled={step !== 1}
-                    className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
-                  />
+                <div>
+                  <h3 className="text-lg font-bold text-ghost-primary mb-4">MINT TOKEN</h3>
+                  <div className="flex flex-col md:flex-row gap-4 max-h-60 overflow-y-auto pr-2"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#FFD700 #1A1F2C',
+                    }}
+                  >
+                    {/* Image Upload Section */}
+                    <div className="w-full md:w-1/3 flex flex-col items-center">
+                      <div
+                        className="w-full aspect-square bg-ghost-darker rounded-lg border-2 border-dashed border-ghost-primary/20 flex items-center justify-center cursor-pointer hover:bg-ghost-darker/80 transition-colors"
+                        onClick={() => document.getElementById('token-image-upload')?.click()}
+                      >
+                        {tokenImage ? (
+                          <img
+                            src={tokenImage}
+                            alt="Token preview"
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="text-center p-4">
+                            <div className="text-ghost-primary text-4xl mb-2">🖼️</div>
+                            <p className="text-ghost-primary/70 text-sm">Upload Token Image</p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        id="token-image-upload"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={step !== 1}
+                      />
+                      <p className="text-ghost-primary/50 text-xs mt-2 text-center">Recommended: 500x500px</p>
+                    </div>
+
+                    {/* Token Details Section */}
+                    <div className="w-full md:w-2/3 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          placeholder="Token Name *"
+                          value={tokenName}
+                          onChange={(e) => setTokenName(e.target.value)}
+                          disabled={step !== 1}
+                          className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
+                        />
+                        <input
+                          placeholder="Token Ticker *"
+                          value={tokenTicker}
+                          onChange={(e) => setTokenTicker(e.target.value)}
+                          disabled={step !== 1}
+                          className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
+                        />
+                      </div>
+
+                      <textarea
+                        placeholder="Token Description *"
+                        value={tokenDescription}
+                        onChange={(e) => setTokenDescription(e.target.value)}
+                        disabled={step !== 1}
+                        rows={2}
+                        className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none resize-none"
+                      />
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center">
+                          <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
+                            </svg>
+                          </div>
+                          <input
+                            placeholder="Twitter (optional)"
+                            value={tokenTwitter}
+                            onChange={(e) => setTokenTwitter(e.target.value)}
+                            disabled={step !== 1}
+                            className="flex-1 bg-ghost-darker text-ghost-primary p-3 rounded-r border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center">
+                          <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="2" y1="12" x2="22" y2="12"></line>
+                              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                            </svg>
+                          </div>
+                          <input
+                            placeholder="Website (optional)"
+                            value={tokenWebsite}
+                            onChange={(e) => setTokenWebsite(e.target.value)}
+                            disabled={step !== 1}
+                            className="flex-1 bg-ghost-darker text-ghost-primary p-3 rounded-r border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center">
+                          <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21.5 7.5L18.3 4.3C17.8 3.8 17.1 3.5 16.4 3.5H7.6C6.9 3.5 6.2 3.8 5.7 4.3L2.5 7.5"></path>
+                              <path d="M2.5 7.5L5.7 10.7C6.2 11.2 6.9 11.5 7.6 11.5H16.4C17.1 11.5 17.8 11.2 18.3 10.7L21.5 7.5"></path>
+                              <path d="M22 12V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V12"></path>
+                              <line x1="2" y1="7.5" x2="22" y2="7.5"></line>
+                            </svg>
+                          </div>
+                          <input
+                            placeholder="Telegram (optional)"
+                            value={tokenTelegram}
+                            onChange={(e) => setTokenTelegram(e.target.value)}
+                            disabled={step !== 1}
+                            className="flex-1 bg-ghost-darker text-ghost-primary p-3 rounded-r border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-ghost-primary/50 text-xs">
+                    * Required fields
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="bg-black p-6 rounded-lg border-4 border-ghost-primary/30 font-mono">
-              <div className="mb-6 max-h-64 overflow-y-auto flex flex-col gap-4">
+              <div
+                className="mb-6 h-40 overflow-y-auto flex flex-col gap-4 pr-2"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#FFD700 #1A1F2C',
+                }}
+              >
                 {output.map(renderConsoleOutput)}
+                <div ref={outputEndRef} />
               </div>
 
               <div className="bg-ghost-darker p-4 rounded-lg border-4 border-ghost-primary/30">
@@ -234,7 +381,7 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
                     {step === 1 && (
                       <Button
                         onClick={generateMintProof}
-                        disabled={loading || !tokenName || !tokenSupply}
+                        disabled={loading || !tokenName || !tokenTicker || !tokenDescription}
                         className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
                         variant="outline"
                       >
@@ -259,7 +406,12 @@ const PrivacyMinter = ({ onClose }: { onClose: () => void }) => {
                     onClick={() => {
                       setStep(1);
                       setTokenName('');
-                      setTokenSupply('');
+                      setTokenTicker('');
+                      setTokenDescription('');
+                      setTokenTwitter('');
+                      setTokenWebsite('');
+                      setTokenTelegram('');
+                      setTokenImage(null);
                       setCommitment('');
                       setOutput([
                         { content: 'GhostPad initialized...', type: 'system' },
