@@ -11,7 +11,7 @@ export const Navbar = () => {
   return (
     <>
       {/* Fixed Navigation Bar */}
-      <nav className="fixed top-4 right-4 z-50 flex items-center gap-3 p-3 rounded-full bg-ghost-darker border border-ghost-primary/20 text-white">
+      <nav className="fixed top-4 left-4 z-50 flex items-center gap-3 p-3 rounded-full bg-ghost-darker border border-ghost-primary/20 text-white">
         <span className="text-xl mr-1">👻</span>
         <button
           onClick={toggleInstructions}
