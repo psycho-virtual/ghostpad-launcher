@@ -69,7 +69,7 @@ export const Hero: React.FC = () => {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
-                  onClick={() => window.open('/public/whitepaper.pdf', '_blank')}
+                  onClick={() => window.open('/whitepaper.pdf', '_blank')}
                   className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-mono py-6"
                 >
                   Learn More
@@ -80,8 +80,6 @@ export const Hero: React.FC = () => {
           </div>
         </div>
       </div>
-
-
     </section>
   );
 };
