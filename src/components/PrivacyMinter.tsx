@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Shield, Coins, X } from 'lucide-react';
+import { Shield, Coins, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { useCommitmentGenerator } from '@/hooks/useCommitmentGenerator';
 
 const PrivacyMinter = ({ onClose }) => {
-  const [mode, setMode] = useState('deposit'); // deposit or mint
-  const [step, setStep] = useState(1);
-  const [amount, setAmount] = useState(1); // Fixed at 1 ETH
+  // Workflow state
+  const [mode, setMode] = useState('deposit'); // 'deposit' or 'mint'
+  const [step, setStep] = useState(1); // Step within each mode (1, 2, or 3)
+  const [amount, setAmount] = useState(1); // ETH amount (0.1, 1, or 10)
+
+  // Token info form state
   const [tokenName, setTokenName] = useState('');
   const [tokenTicker, setTokenTicker] = useState('');
   const [tokenDescription, setTokenDescription] = useState('');
@@ -13,30 +17,73 @@ const PrivacyMinter = ({ onClose }) => {
   const [tokenWebsite, setTokenWebsite] = useState('');
   const [tokenTelegram, setTokenTelegram] = useState('');
   const [tokenImage, setTokenImage] = useState(null);
+  const [selectedCommitmentFile, setSelectedCommitmentFile] = useState(null);
+
+  // UI state
   const [loading, setLoading] = useState(false);
-  const [commitment, setCommitment] = useState('');
   const [output, setOutput] = useState([
     { content: 'GhostPad initialized...', type: 'system' },
     { content: 'Ready for anonymous operations', type: 'system' }
   ]);
-
   const outputEndRef = useRef(null);
 
-  const addOutput = (content, type = 'system', isError = false, isSuccess = false) => {
-    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
-  };
+  // Use commitment generator hook
+  const {
+    loading: commitmentLoading,
+    commitment,
+    error: commitmentError,
+    depositData,
+    generateCommitment,
+    prepareDepositData,
+    prepareWithdrawData
+  } = useCommitmentGenerator();
 
-  // Auto-scroll to the bottom when new output is added
+  // Set up auto-scrolling for console output
   useEffect(() => {
     if (outputEndRef.current) {
       outputEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [output]);
 
+  // Show any commitment errors in the console
+  useEffect(() => {
+    if (commitmentError) {
+      addOutput(`Error: ${commitmentError}`, 'system', true);
+    }
+  }, [commitmentError]);
+
+  /**
+   * Add a line to the console output
+   */
+  const addOutput = (content, type = 'system', isError = false, isSuccess = false) => {
+    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
+  };
+
+  /**
+   * Reset the form to start over
+   */
+  const resetForm = () => {
+    setStep(1);
+    setTokenName('');
+    setTokenTicker('');
+    setTokenDescription('');
+    setTokenTwitter('');
+    setTokenWebsite('');
+    setTokenTelegram('');
+    setTokenImage(null);
+    setSelectedCommitmentFile(null);
+    setOutput([
+      { content: 'GhostPad initialized...', type: 'system' },
+      { content: 'Ready for anonymous operations', type: 'system' }
+    ]);
+  };
+
+  /**
+   * Handle image upload for token
+   */
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Preview the image
       const reader = new FileReader();
       reader.onloadend = () => {
         setTokenImage(reader.result);
@@ -46,68 +93,164 @@ const PrivacyMinter = ({ onClose }) => {
     }
   };
 
-  const generateDeposit = async () => {
-    setLoading(true);
-    addOutput('Generating deposit commitment...', 'input');
-    try {
-      // Simulate k, r generation and commitment
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockCommitment = 'Cx' + Math.random().toString(16).slice(2, 10);
-      setCommitment(mockCommitment);
-      addOutput(`Commitment generated: ${mockCommitment}`, 'system', false, true);
-      setStep(2);
-    } catch (error) {
-      addOutput('Error generating commitment', 'system', true);
+  /**
+   * Handle commitment file upload for minting process
+   */
+  const handleCommitmentUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const jsonData = JSON.parse(event.target.result);
+          if (jsonData.commitment && jsonData.nullifierHash) {
+            // Store the commitment data in localStorage
+            localStorage.setItem('depositData', JSON.stringify(jsonData));
+            setSelectedCommitmentFile(file.name);
+            addOutput(`Commitment file loaded: ${file.name}`, 'system', false, true);
+          } else {
+            addOutput('Invalid commitment file format', 'system', true);
+          }
+        } catch (error) {
+          addOutput('Error parsing commitment file: ' + error.message, 'system', true);
+        }
+      };
+      reader.onerror = () => {
+        addOutput('Error reading file', 'system', true);
+      };
+      reader.readAsText(file);
     }
-    setLoading(false);
   };
 
+  /**
+   * Generate a cryptographic commitment for privacy
+   */
+  const handleGenerateCommitment = async () => {
+    addOutput('Generating deposit commitment...', 'input');
+
+    const result = await generateCommitment();
+
+    if (result.success) {
+      const shortCommitment = result.commitment.substring(0, 10) + '...';
+      addOutput(`Commitment generated: ${shortCommitment}`, 'system', false, true);
+
+      // Store commitment details securely for future reference
+      localStorage.setItem('depositData', JSON.stringify(result.depositData));
+      setStep(2);
+    } else {
+      addOutput('Error generating commitment: ' + result.error, 'system', true);
+    }
+  };
+
+  /**
+   * Submit a deposit to the privacy pool
+   */
   const submitDeposit = async () => {
     setLoading(true);
     addOutput(`Submitting ${amount} ETH deposit...`, 'input');
+
     try {
+      // Prepare the deposit data
+      const depositData = prepareDepositData();
+
+      // In a real implementation, this would call the contract:
+      // const tx = await tornadoContract.deposit(depositData.commitment, {
+      //   value: ethers.parseEther(amount.toString())
+      // });
+      // await tx.wait();
+
+      // Simulate network delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
+
       addOutput('Deposit successful - save your commitment!', 'system', false, true);
       setStep(3);
     } catch (error) {
-      addOutput('Error processing deposit', 'system', true);
+      addOutput('Error processing deposit: ' + (error.message || error), 'system', true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  /**
+   * Generate a zero-knowledge proof for token minting
+   */
   const generateMintProof = async () => {
     setLoading(true);
     addOutput(`Generating ZK proof for ${tokenName} (${tokenTicker})...`, 'input');
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Validate required token info
+      if (!tokenName || !tokenTicker || !tokenDescription) {
+        throw new Error('Missing required token information');
+      }
+
+      // Check for any missing but optional fields
       const missingFields = [];
       if (!tokenImage) missingFields.push('token image');
-
       if (missingFields.length > 0) {
         addOutput(`Warning: Missing optional fields: ${missingFields.join(', ')}`, 'system');
       }
 
+      // Load saved deposit data
+      const savedDepositData = JSON.parse(localStorage.getItem('depositData') || '{}');
+      if (!savedDepositData.nullifierHash) {
+        throw new Error('No valid commitment data found. Please upload your commitment file from Phase 1.');
+      }
+
+      // Simulate proof generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const shortHash = savedDepositData.nullifierHash.substring(0, 10) + '...';
+      addOutput(`Using nullifier hash: ${shortHash}`, 'system');
       addOutput('Zero-knowledge proof generated', 'system', false, true);
+
       setStep(2);
     } catch (error) {
-      addOutput('Error generating proof', 'system', true);
+      addOutput(error.message || 'Error generating proof', 'system', true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  /**
+   * Execute the token minting transaction
+   */
   const executeMint = async () => {
     setLoading(true);
     addOutput('Submitting mint transaction via relayer...', 'input');
+
     try {
+      // Load saved deposit data
+      const savedDepositData = JSON.parse(localStorage.getItem('depositData') || '{}');
+
+      // Prepare withdrawal data with the current user account as recipient
+      // In a real implementation, this would be the user's connected wallet address
+      const withdrawData = prepareWithdrawData('0xUserAddress');
+
+      // In a real implementation, this would call the token minting contract:
+      // const tx = await tokenContract.deployToken(
+      //   { name: tokenName, symbol: tokenTicker, ... },
+      //   withdrawData,
+      //   true, // useProtocolFee
+      //   false // vestingEnabled
+      // );
+      // await tx.wait();
+
+      // Simulate network delay for demo
       await new Promise(resolve => setTimeout(resolve, 2000));
+
       addOutput(`Token ${tokenName} (${tokenTicker}) minted successfully!`, 'system', false, true);
       setStep(3);
     } catch (error) {
-      addOutput('Error minting token', 'system', true);
+      addOutput('Error minting token: ' + (error.message || error), 'system', true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  /**
+   * Render a console output line with appropriate styling
+   */
   const renderConsoleOutput = (item, index) => (
     <div
       key={index}
@@ -131,6 +274,7 @@ const PrivacyMinter = ({ onClose }) => {
       <div className="w-full max-w-4xl mx-auto">
         <div className="bg-gradient-to-b from-orange-500 to-yellow-500 p-8 rounded-xl animate-fade-in">
           <div className="bg-ghost-dark rounded-xl p-6 border-8 border-yellow-500 shadow-2xl relative">
+            {/* Close button */}
             <button
               onClick={onClose}
               className="absolute right-4 top-4 text-gray-400 hover:text-white"
@@ -138,6 +282,7 @@ const PrivacyMinter = ({ onClose }) => {
               <X className="w-6 h-6" />
             </button>
 
+            {/* Header */}
             <div className="text-center mb-8">
               <div className="inline-block bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 p-1 rounded-lg transform -rotate-2">
                 <h1 className="text-6xl font-black text-gray-900 bg-ghost-dark px-8 py-4 rounded-lg">
@@ -151,6 +296,7 @@ const PrivacyMinter = ({ onClose }) => {
               </div>
             </div>
 
+            {/* Mode Selector */}
             <div className="flex gap-4 mb-6">
               <Button
                 onClick={() => {setMode('deposit'); setStep(1);}}
@@ -174,8 +320,10 @@ const PrivacyMinter = ({ onClose }) => {
               </Button>
             </div>
 
+            {/* Form Content */}
             <div className="bg-ghost-dark p-6 rounded-lg border-4 border-ghost-primary/30 mb-6">
               {mode === 'deposit' ? (
+                /* Deposit Form */
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-ghost-primary">DEPOSIT ETH</h3>
                   <div className="bg-ghost-darker p-4 rounded border-2 border-ghost-primary/20">
@@ -209,12 +357,48 @@ const PrivacyMinter = ({ onClose }) => {
                       </Button>
                     </div>
                     <p className="text-ghost-primary">Selected amount: {amount} ETH</p>
-                    {commitment && <p className="text-green-500 mt-2">Commitment: {commitment}</p>}
+                    {commitment && (
+                      <p className="text-green-500 mt-2">
+                        Commitment: {typeof commitment === 'string'
+                          ? commitment.substring(0, 12) + '...'
+                          : 'Generated'}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
+                /* Mint Form */
                 <div>
                   <h3 className="text-lg font-bold text-ghost-primary mb-4">MINT TOKEN</h3>
+
+                  {/* Commitment File Upload Section */}
+                  <div className="mb-4 p-4 bg-ghost-darker rounded border-2 border-ghost-primary/20">
+                    <h4 className="text-md font-medium text-ghost-primary mb-2">Commitment Data</h4>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        onClick={() => document.getElementById('commitment-file-upload')?.click()}
+                        disabled={step !== 1}
+                        className="py-2 px-4 bg-ghost-dark text-ghost-primary border border-ghost-primary/20 rounded hover:bg-ghost-primary/10"
+                        variant="outline"
+                      >
+                        Upload Commitment File
+                      </Button>
+                      <input
+                        type="file"
+                        id="commitment-file-upload"
+                        className="hidden"
+                        accept=".json"
+                        onChange={handleCommitmentUpload}
+                        disabled={step !== 1}
+                      />
+                      <span className="text-sm text-ghost-primary/70">
+                        {selectedCommitmentFile
+                          ? `File: ${selectedCommitmentFile}`
+                          : "Upload your commitment .json file from Phase 1"}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col md:flex-row gap-4 max-h-60 overflow-y-auto pr-2"
                     style={{
                       scrollbarWidth: 'thin',
@@ -279,7 +463,9 @@ const PrivacyMinter = ({ onClose }) => {
                         className="w-full bg-ghost-darker text-ghost-primary p-3 rounded border-2 border-ghost-primary/20 focus:border-ghost-primary focus:outline-none resize-none"
                       />
 
+                      {/* Social Media Fields */}
                       <div className="grid grid-cols-1 gap-3">
+                        {/* Twitter Field */}
                         <div className="flex items-center">
                           <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -295,6 +481,7 @@ const PrivacyMinter = ({ onClose }) => {
                           />
                         </div>
 
+                        {/* Website Field */}
                         <div className="flex items-center">
                           <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -312,6 +499,7 @@ const PrivacyMinter = ({ onClose }) => {
                           />
                         </div>
 
+                        {/* Telegram Field */}
                         <div className="flex items-center">
                           <div className="text-ghost-primary/50 bg-ghost-darker/50 p-3 rounded-l border-2 border-r-0 border-ghost-primary/20 min-w-[40px] flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -340,7 +528,9 @@ const PrivacyMinter = ({ onClose }) => {
               )}
             </div>
 
+            {/* Console Output & Buttons */}
             <div className="bg-black p-6 rounded-lg border-4 border-ghost-primary/30 font-mono">
+              {/* Console Output */}
               <div
                 className="mb-6 h-40 overflow-y-auto flex flex-col gap-4 pr-2"
                 style={{
@@ -352,17 +542,19 @@ const PrivacyMinter = ({ onClose }) => {
                 <div ref={outputEndRef} />
               </div>
 
+              {/* Action Buttons */}
               <div className="bg-ghost-darker p-4 rounded-lg border-4 border-ghost-primary/30">
                 {mode === 'deposit' ? (
+                  // Deposit Mode Buttons
                   <>
                     {step === 1 && (
                       <Button
-                        onClick={generateDeposit}
-                        disabled={loading}
+                        onClick={handleGenerateCommitment}
+                        disabled={commitmentLoading || loading}
                         className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
                         variant="outline"
                       >
-                        {loading ? 'GENERATING...' : 'GENERATE COMMITMENT'}
+                        {commitmentLoading || loading ? 'GENERATING...' : 'GENERATE COMMITMENT'}
                       </Button>
                     )}
                     {step === 2 && (
@@ -377,6 +569,7 @@ const PrivacyMinter = ({ onClose }) => {
                     )}
                   </>
                 ) : (
+                  // Mint Mode Buttons
                   <>
                     {step === 1 && (
                       <Button
@@ -401,28 +594,51 @@ const PrivacyMinter = ({ onClose }) => {
                   </>
                 )}
 
+                {/* Complete Step Buttons (Step 3) */}
                 {step === 3 && (
-                  <Button
-                    onClick={() => {
-                      setStep(1);
-                      setTokenName('');
-                      setTokenTicker('');
-                      setTokenDescription('');
-                      setTokenTwitter('');
-                      setTokenWebsite('');
-                      setTokenTelegram('');
-                      setTokenImage(null);
-                      setCommitment('');
-                      setOutput([
-                        { content: 'GhostPad initialized...', type: 'system' },
-                        { content: 'Ready for anonymous operations', type: 'system' }
-                      ]);
-                    }}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg"
-                    variant="outline"
-                  >
-                    START NEW {mode.toUpperCase()}
-                  </Button>
+                  <div className="flex flex-col space-y-3">
+                    {mode === 'deposit' && (
+                      <Button
+                        onClick={() => {
+                          // Get commitment data
+                          const commitmentData = JSON.parse(localStorage.getItem('depositData') || '{}');
+
+                          // Add additional metadata
+                          const downloadData = {
+                            ...commitmentData,
+                            metadata: {
+                              date: new Date().toISOString(),
+                              amount: amount,
+                              type: 'ghostpad-commitment'
+                            }
+                          };
+
+                          // Create and download file
+                          const element = document.createElement('a');
+                          const file = new Blob([JSON.stringify(downloadData, null, 2)], {type: 'application/json'});
+                          element.href = URL.createObjectURL(file);
+                          element.download = `ghostpad-commitment-${Date.now()}.json`;
+                          document.body.appendChild(element);
+                          element.click();
+                          document.body.removeChild(element);
+
+                          addOutput('Commitment data downloaded as JSON', 'system', false, true);
+                        }}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg"
+                        variant="outline"
+                      >
+                        DOWNLOAD COMMITMENT DATA
+                      </Button>
+                    )}
+
+                    <Button
+                      onClick={resetForm}
+                      className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg"
+                      variant="outline"
+                    >
+                      START NEW {mode.toUpperCase()}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
