@@ -47,16 +47,25 @@ const PrivacyMinter = ({ onClose }) => {
   const { 
     deployToken, 
     isLoading: isDeployLoading, 
-    isSuccess: isDeploySuccess 
-  } = useGhostPadContract(
+    isSuccess: isDeploySuccess,
+    deployedTokenAddress  } = useGhostPadContract(
     mintParams.tokenData,
     mintParams.proofData,
     (txHash) => {
-      addOutput(`Transaction submitted! Hash: ${txHash}`, 'system');
+      addOutput(`Transaction submitted! Hash: ${txHash.substring(0, 10)}...`, 'system');
       addOutput(`Token ${tokenName} (${tokenTicker}) minting initiated!`, 'system', false, true);
     },
     (error) => {
       addOutput(`Error: ${error.message}`, 'system', true);
+    },
+    (result) => {
+      // This callback is triggered when the token is deployed
+      addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
+      addOutput(`✅ TOKEN DEPLOYMENT SUCCESSFUL`, 'system', false, true);
+      addOutput(`Token Name: ${result.tokenName}`, 'system', false, true);
+      addOutput(`Token Symbol: ${result.tokenSymbol}`, 'system', false, true);
+      addOutput(`Token Address: ${result.tokenAddress}`, 'system', false, true);
+      addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
     }
   );
 
@@ -67,33 +76,42 @@ const PrivacyMinter = ({ onClose }) => {
     }
   }, [isDeploySuccess]);
 
-  /**
+    /**
    * Add a line to the console output
    */
-  const addOutput = useCallback((content, type = 'system', isError = false, isSuccess = false) => {
-    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
-  }, []);
+    const addOutput = useCallback((content, type = 'system', isError = false, isSuccess = false) => {
+      setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
+    }, []);
+
+
+  // And also add a function to help copy the token address
+  const copyTokenAddress = useCallback(() => {
+    if (deployedTokenAddress) {
+      navigator.clipboard.writeText(deployedTokenAddress)
+        .then(() => {
+          addOutput(`✓ Token address copied to clipboard!`, 'system', false, true);
+        })
+        .catch(err => {
+          addOutput(`Error copying to clipboard: ${err}`, 'system', true);
+        });
+    }
+  }, [deployedTokenAddress, addOutput]);
 
   // Use commitment generator hook
   const {
     loading: commitmentLoading,
     commitment,
     error: commitmentError,
-    depositData,
     generateCommitment,
-    prepareDepositData,
-    prepareWithdrawData,
     downloadCommitmentData
   } = useCommitmentGenerator();
 
   // Use tornado deposit hook
   const {
-    contractAddress,
     isLoading: depositLoading,
     isTxSuccess,
     updateCommitmentData,
-    submitDeposit,
-    txData
+    submitDeposit  
   } = useTornadoDeposit(amount, addOutput);
 
   // Update loading state
@@ -334,14 +352,23 @@ const PrivacyMinter = ({ onClose }) => {
         throw new Error('Transaction not prepared. Please generate proof first.');
       }
 
-      // Execute the contract transaction
+      // Add debug output
+      addOutput('Debug: Params prepared, calling deployToken function', 'system');
+      console.log('Mint params:', mintParams);
+      
+      // Execute the contract transaction without parameters
       deployToken();
+      
+      // Additional logging
+      addOutput('Transaction function called. Check console for details.', 'system');
+      
       // Note: setLoading(false) will happen when isDeployLoading becomes false
     } catch (error) {
       addOutput('Error minting token: ' + (error.message || error), 'system', true);
+      console.error('Mint error:', error);
       setLoading(false);
     }
-  }, [deployToken, addOutput]);
+  }, [deployToken, addOutput, mintParams]);
 
   /**
    * Render a console output line with appropriate styling
@@ -731,8 +758,20 @@ const PrivacyMinter = ({ onClose }) => {
                     </Button>
                   </div>
                 )}
+
+                {/* Copy Token Address Button */}
+                {step === 3 && mode === 'mint' && deployedTokenAddress && (
+                  <Button
+                    onClick={copyTokenAddress}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg mt-2"
+                    variant="outline"
+                  >
+                    COPY TOKEN ADDRESS
+                  </Button>
+                )}
               </div>
             </div>
+            
           </div>
         </div>
       </div>
