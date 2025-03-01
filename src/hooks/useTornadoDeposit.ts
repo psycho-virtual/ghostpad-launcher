@@ -27,19 +27,6 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
     addOutput(`Selected ${amount} ETH pool at ${getTornadoContractAddress(amount)}`, 'system');
   }, [amount, addOutput]);
   
-  // Load saved commitment data if it exists
-  useEffect(() => {
-    const savedData = localStorage.getItem('depositData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        setCommitmentData(parsedData);
-      } catch (e) {
-        console.error('Failed to parse saved deposit data', e);
-      }
-    }
-  }, []);
-
   // Log network information
   useEffect(() => {
     if (chain) {
@@ -141,9 +128,7 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
     }
 
     try {
-      write({
-        methodName: 'Tornado Deposit'
-      });
+      write();
       return true;
     } catch (error) {
       addOutput(`Error processing deposit: ${error.message || error}`, 'system', true);
