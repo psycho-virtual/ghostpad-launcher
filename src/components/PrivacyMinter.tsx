@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Shield, Coins, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useCommitmentGenerator } from '@/hooks/useCommitmentGenerator';
+import { useTornadoDeposit } from '@/hooks/useTornadoDeposit';
+import { formatCommitment, downloadCommitmentData, parseJsonFile, validateTokenInfo } from '@/utils/privacyUtils';
 
 const PrivacyMinter = ({ onClose }) => {
   // Workflow state
@@ -27,6 +29,13 @@ const PrivacyMinter = ({ onClose }) => {
   ]);
   const outputEndRef = useRef(null);
 
+  /**
+   * Add a line to the console output
+   */
+  const addOutput = useCallback((content, type = 'system', isError = false, isSuccess = false) => {
+    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
+  }, []);
+
   // Use commitment generator hook
   const {
     loading: commitmentLoading,
@@ -37,6 +46,28 @@ const PrivacyMinter = ({ onClose }) => {
     prepareDepositData,
     prepareWithdrawData
   } = useCommitmentGenerator();
+
+  // Use tornado deposit hook
+  const {
+    contractAddress,
+    isLoading: depositLoading,
+    isTxSuccess,
+    updateCommitmentData,
+    submitDeposit,
+    txData
+  } = useTornadoDeposit(amount, addOutput);
+
+  // Update loading state
+  useEffect(() => {
+    setLoading(commitmentLoading || depositLoading);
+  }, [commitmentLoading, depositLoading]);
+
+  // Move to next step after successful transaction
+  useEffect(() => {
+    if (isTxSuccess) {
+      setStep(3);
+    }
+  }, [isTxSuccess]);
 
   // Set up auto-scrolling for console output
   useEffect(() => {
@@ -50,19 +81,12 @@ const PrivacyMinter = ({ onClose }) => {
     if (commitmentError) {
       addOutput(`Error: ${commitmentError}`, 'system', true);
     }
-  }, [commitmentError]);
-
-  /**
-   * Add a line to the console output
-   */
-  const addOutput = (content, type = 'system', isError = false, isSuccess = false) => {
-    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
-  };
+  }, [commitmentError, addOutput]);
 
   /**
    * Reset the form to start over
    */
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setStep(1);
     setTokenName('');
     setTokenTicker('');
@@ -76,12 +100,12 @@ const PrivacyMinter = ({ onClose }) => {
       { content: 'GhostPad initialized...', type: 'system' },
       { content: 'Ready for anonymous operations', type: 'system' }
     ]);
-  };
+  }, []);
 
   /**
    * Handle image upload for token
    */
-  const handleImageUpload = (e) => {
+  const handleImageUpload = useCallback((e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
@@ -91,104 +115,84 @@ const PrivacyMinter = ({ onClose }) => {
       reader.readAsDataURL(file);
       addOutput(`Token image selected: ${file.name}`, 'input');
     }
-  };
+  }, [addOutput]);
 
   /**
    * Handle commitment file upload for minting process
    */
-  const handleCommitmentUpload = (e) => {
+  const handleCommitmentUpload = useCallback((e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        try {
-          const jsonData = JSON.parse(event.target.result);
-          if (jsonData.commitment && jsonData.nullifierHash) {
-            // Store the commitment data in localStorage
-            localStorage.setItem('depositData', JSON.stringify(jsonData));
-            setSelectedCommitmentFile(file.name);
-            addOutput(`Commitment file loaded: ${file.name}`, 'system', false, true);
-          } else {
-            addOutput('Invalid commitment file format', 'system', true);
-          }
-        } catch (error) {
-          addOutput('Error parsing commitment file: ' + error.message, 'system', true);
-        }
+        parseJsonFile(
+          event,
+          (jsonData) => {
+            if (jsonData.commitment && jsonData.nullifierHash) {
+              localStorage.setItem('depositData', JSON.stringify(jsonData));
+              setSelectedCommitmentFile(file.name);
+              addOutput(`Commitment file loaded: ${file.name}`, 'system', false, true);
+            } else {
+              addOutput('Invalid commitment file format', 'system', true);
+            }
+          },
+          (errorMsg) => addOutput(errorMsg, 'system', true)
+        );
       };
       reader.onerror = () => {
         addOutput('Error reading file', 'system', true);
       };
       reader.readAsText(file);
     }
-  };
+  }, [addOutput]);
 
   /**
-   * Generate a cryptographic commitment for privacy
+   * Handle commitment generation
    */
-  const handleGenerateCommitment = async () => {
+  const handleGenerateCommitment = useCallback(async () => {
     addOutput('Generating deposit commitment...', 'input');
 
     const result = await generateCommitment();
 
     if (result.success) {
-      const shortCommitment = result.commitment.substring(0, 10) + '...';
+      const shortCommitment = formatCommitment(result.commitment);
       addOutput(`Commitment generated: ${shortCommitment}`, 'system', false, true);
 
-      // Store commitment details securely for future reference
-      localStorage.setItem('depositData', JSON.stringify(result.depositData));
+      // Store commitment details and update contract info
+      updateCommitmentData(result.depositData);
       setStep(2);
     } else {
       addOutput('Error generating commitment: ' + result.error, 'system', true);
     }
-  };
+  }, [generateCommitment, updateCommitmentData, addOutput]);
 
   /**
-   * Submit a deposit to the privacy pool
+   * Handle deposit submission
    */
-  const submitDeposit = async () => {
-    setLoading(true);
-    addOutput(`Submitting ${amount} ETH deposit...`, 'input');
-
-    try {
-      // Prepare the deposit data
-      const depositData = prepareDepositData();
-
-      // In a real implementation, this would call the contract:
-      // const tx = await tornadoContract.deposit(depositData.commitment, {
-      //   value: ethers.parseEther(amount.toString())
-      // });
-      // await tx.wait();
-
-      // Simulate network delay for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      addOutput('Deposit successful - save your commitment!', 'system', false, true);
-      setStep(3);
-    } catch (error) {
-      addOutput('Error processing deposit: ' + (error.message || error), 'system', true);
-    } finally {
+  const handleSubmitDeposit = useCallback(async () => {
+    const success = await submitDeposit();
+    if (!success) {
       setLoading(false);
     }
-  };
+  }, [submitDeposit, setLoading]);
 
   /**
    * Generate a zero-knowledge proof for token minting
    */
-  const generateMintProof = async () => {
+  const generateMintProof = useCallback(async () => {
     setLoading(true);
     addOutput(`Generating ZK proof for ${tokenName} (${tokenTicker})...`, 'input');
 
     try {
-      // Validate required token info
-      if (!tokenName || !tokenTicker || !tokenDescription) {
-        throw new Error('Missing required token information');
+      // Validate token info
+      const validation = validateTokenInfo(tokenName, tokenTicker, tokenDescription);
+      
+      if (!validation.isValid) {
+        throw new Error(`Missing required fields: ${validation.missingRequired.join(', ')}`);
       }
-
-      // Check for any missing but optional fields
-      const missingFields = [];
-      if (!tokenImage) missingFields.push('token image');
-      if (missingFields.length > 0) {
-        addOutput(`Warning: Missing optional fields: ${missingFields.join(', ')}`, 'system');
+      
+      if (validation.missingOptional.length > 0) {
+        addOutput(`Warning: Missing optional fields: ${validation.missingOptional.join(', ')}`, 'system');
       }
 
       // Load saved deposit data
@@ -200,7 +204,7 @@ const PrivacyMinter = ({ onClose }) => {
       // Simulate proof generation
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const shortHash = savedDepositData.nullifierHash.substring(0, 10) + '...';
+      const shortHash = formatCommitment(savedDepositData.nullifierHash);
       addOutput(`Using nullifier hash: ${shortHash}`, 'system');
       addOutput('Zero-knowledge proof generated', 'system', false, true);
 
@@ -210,12 +214,12 @@ const PrivacyMinter = ({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tokenName, tokenTicker, tokenDescription, addOutput]);
 
   /**
    * Execute the token minting transaction
    */
-  const executeMint = async () => {
+  const executeMint = useCallback(async () => {
     setLoading(true);
     addOutput('Submitting mint transaction via relayer...', 'input');
 
@@ -246,28 +250,33 @@ const PrivacyMinter = ({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [prepareWithdrawData, addOutput]);
 
   /**
    * Render a console output line with appropriate styling
    */
-  const renderConsoleOutput = (item, index) => (
-    <div
-      key={index}
-      className={`p-3 rounded-lg border-l-4 ${
-        item.isError
-          ? 'bg-red-900/30 text-red-400 border-red-500'
-          : item.isSuccess
-          ? 'bg-green-900/30 text-green-400 border-green-500'
-          : item.type === 'input'
-          ? 'bg-gray-800 text-orange-400 border-orange-500'
-          : 'bg-gray-900 text-yellow-500 border-yellow-500'
-      }`}
-    >
-      <span className="font-extrabold mr-3">{item.type === 'input' ? '>' : '←'}</span>
-      {item.content}
-    </div>
-  );
+  const renderConsoleOutput = useCallback((item, index) => {
+    let className = 'text-sm';
+    if (item.type === 'system') {
+      className += ' text-ghost-primary';
+    } else if (item.type === 'input') {
+      className += ' text-blue-400';
+    }
+    
+    if (item.isError) {
+      className += ' text-red-400';
+    }
+    
+    if (item.isSuccess) {
+      className += ' text-green-400';
+    }
+    
+    return (
+      <div key={index} className={className}>
+        {item.content}
+      </div>
+    );
+  }, []);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50 p-4 overflow-y-auto">
@@ -559,7 +568,7 @@ const PrivacyMinter = ({ onClose }) => {
                     )}
                     {step === 2 && (
                       <Button
-                        onClick={submitDeposit}
+                        onClick={handleSubmitDeposit}
                         disabled={loading}
                         className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
                         variant="outline"
@@ -600,28 +609,7 @@ const PrivacyMinter = ({ onClose }) => {
                     {mode === 'deposit' && (
                       <Button
                         onClick={() => {
-                          // Get commitment data
-                          const commitmentData = JSON.parse(localStorage.getItem('depositData') || '{}');
-
-                          // Add additional metadata
-                          const downloadData = {
-                            ...commitmentData,
-                            metadata: {
-                              date: new Date().toISOString(),
-                              amount: amount,
-                              type: 'ghostpad-commitment'
-                            }
-                          };
-
-                          // Create and download file
-                          const element = document.createElement('a');
-                          const file = new Blob([JSON.stringify(downloadData, null, 2)], {type: 'application/json'});
-                          element.href = URL.createObjectURL(file);
-                          element.download = `ghostpad-commitment-${Date.now()}.json`;
-                          document.body.appendChild(element);
-                          element.click();
-                          document.body.removeChild(element);
-
+                          downloadCommitmentData(amount);
                           addOutput('Commitment data downloaded as JSON', 'system', false, true);
                         }}
                         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg"
