@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Shield, Coins, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useCommitmentGenerator } from '@/hooks/useCommitmentGenerator';
 import { useTornadoDeposit } from '@/hooks/useTornadoDeposit';
-import { formatCommitment, downloadCommitmentData, parseJsonFile, validateTokenInfo } from '@/utils/privacyUtils';
+import { formatCommitment, parseJsonFile, validateTokenInfo } from '@/utils/privacyUtils';
+import { parseEther } from 'ethers';
+import { useGhostPadContract, TokenData, ProofData } from '../hooks/useGhostPadContract';
+import contractAddresses from '../../smart_contract_address.local.json';
+
+const ghostPadAddress = contractAddresses.contracts.ghostPad;
 
 const PrivacyMinter = ({ onClose }) => {
   // Workflow state
@@ -28,6 +33,39 @@ const PrivacyMinter = ({ onClose }) => {
     { content: 'Ready for anonymous operations', type: 'system' }
   ]);
   const outputEndRef = useRef(null);
+
+  // Component level hooks for contract interaction
+  const [mintParams, setMintParams] = useState<{ 
+    tokenData: TokenData | null, 
+    proofData: ProofData | null 
+  }>({
+    tokenData: null,
+    proofData: null
+  });
+
+  // Setup contract interaction
+  const { 
+    deployToken, 
+    isLoading: isDeployLoading, 
+    isSuccess: isDeploySuccess 
+  } = useGhostPadContract(
+    mintParams.tokenData,
+    mintParams.proofData,
+    (txHash) => {
+      addOutput(`Transaction submitted! Hash: ${txHash}`, 'system');
+      addOutput(`Token ${tokenName} (${tokenTicker}) minting initiated!`, 'system', false, true);
+    },
+    (error) => {
+      addOutput(`Error: ${error.message}`, 'system', true);
+    }
+  );
+
+  // Effect to handle success
+  useEffect(() => {
+    if (isDeploySuccess) {
+      setStep(3);
+    }
+  }, [isDeploySuccess]);
 
   /**
    * Add a line to the console output
@@ -178,6 +216,70 @@ const PrivacyMinter = ({ onClose }) => {
   }, [submitDeposit, setLoading]);
 
   /**
+   * Map ETH amount to tornado instance index
+   */
+  const getTornadoInstanceIndex = useCallback((ethAmount) => {
+    switch (ethAmount) {
+      case 0.1:
+        return 0; // Use tornadoInstance0ETH
+      case 1:
+        return 1; // Use tornadoInstance1ETH 
+      case 10:
+        return 2; // Use tornadoInstance10ETH
+      default:
+        return 1; // Default to 1 ETH
+    }
+  }, []);
+
+  /**
+   * Prepare token data for minting
+   */
+  const prepareMintData = useCallback(() => {
+    try {
+      // Load saved deposit data
+      const savedDepositData = JSON.parse(localStorage.getItem('depositData') || '{}');
+      if (!savedDepositData.nullifierHash) {
+        throw new Error('No valid commitment data found');
+      }
+
+      // Create TokenData struct for the contract
+      const tokenData: TokenData = {
+        name: tokenName,
+        symbol: tokenTicker,
+        initialSupply: parseEther('1000000').toString(), // 1M tokens with 18 decimals
+        description: tokenDescription,
+        burnEnabled: true,
+        liquidityLockPeriod: 365 * 24 * 60 * 60, // 1 year in seconds
+        useProtocolFee: true, // Use the protocol fee
+        vestingEnabled: false // No vesting
+      };
+
+      const instanceIndex = getTornadoInstanceIndex(amount);
+      
+      // Create ProofData struct for the contract
+      const proofData: ProofData = {
+        instanceIndex: instanceIndex,
+        proof: savedDepositData.proof || "0x", 
+        root: savedDepositData.root || "0x0000000000000000000000000000000000000000000000000000000000000000",
+        nullifierHash: savedDepositData.nullifierHash,
+        recipient: ghostPadAddress, // Set GhostPad contract as recipient
+        relayer: "0x0000000000000000000000000000000000000000", // No relayer
+        fee: 0,
+        refund: 0 // No refund needed
+      };
+
+      addOutput(`Using tornado instance index: ${instanceIndex} for ${amount} ETH`, 'system');
+      addOutput(`Setting recipient to GhostPad contract: ${ghostPadAddress.substring(0, 8)}...`, 'system');
+      
+      setMintParams({ tokenData, proofData });
+      return true;
+    } catch (error) {
+      addOutput('Error preparing transaction: ' + (error.message || error), 'system', true);
+      return false;
+    }
+  }, [tokenName, tokenTicker, tokenDescription, amount, addOutput, getTornadoInstanceIndex]);
+
+  /**
    * Generate a zero-knowledge proof for token minting
    */
   const generateMintProof = useCallback(async () => {
@@ -209,49 +311,37 @@ const PrivacyMinter = ({ onClose }) => {
       addOutput(`Using nullifier hash: ${shortHash}`, 'system');
       addOutput('Zero-knowledge proof generated', 'system', false, true);
 
+      // Prepare mint data after proof is generated
+      prepareMintData();
+
       setStep(2);
     } catch (error) {
       addOutput(error.message || 'Error generating proof', 'system', true);
     } finally {
       setLoading(false);
     }
-  }, [tokenName, tokenTicker, tokenDescription, addOutput]);
+  }, [tokenName, tokenTicker, tokenDescription, addOutput, prepareMintData]);
 
   /**
    * Execute the token minting transaction
    */
   const executeMint = useCallback(async () => {
     setLoading(true);
-    addOutput('Submitting mint transaction via relayer...', 'input');
+    addOutput('Submitting mint transaction...', 'input');
 
     try {
-      // Load saved deposit data
-      const savedDepositData = JSON.parse(localStorage.getItem('depositData') || '{}');
+      if (!deployToken) {
+        throw new Error('Transaction not prepared. Please generate proof first.');
+      }
 
-      // Prepare withdrawal data with the current user account as recipient
-      // In a real implementation, this would be the user's connected wallet address
-      const withdrawData = prepareWithdrawData('0xUserAddress');
-
-      // In a real implementation, this would call the token minting contract:
-      // const tx = await tokenContract.deployToken(
-      //   { name: tokenName, symbol: tokenTicker, ... },
-      //   withdrawData,
-      //   true, // useProtocolFee
-      //   false // vestingEnabled
-      // );
-      // await tx.wait();
-
-      // Simulate network delay for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      addOutput(`Token ${tokenName} (${tokenTicker}) minted successfully!`, 'system', false, true);
-      setStep(3);
+      // Execute the contract transaction
+      deployToken();
+      // Note: setLoading(false) will happen when isDeployLoading becomes false
     } catch (error) {
       addOutput('Error minting token: ' + (error.message || error), 'system', true);
-    } finally {
       setLoading(false);
     }
-  }, [prepareWithdrawData, addOutput]);
+  }, [deployToken, addOutput]);
 
   /**
    * Render a console output line with appropriate styling
@@ -606,11 +696,11 @@ const PrivacyMinter = ({ onClose }) => {
                     {step === 2 && (
                       <Button
                         onClick={executeMint}
-                        disabled={loading}
+                        disabled={isDeployLoading || !deployToken}
                         className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
                         variant="outline"
                       >
-                        {loading ? 'MINTING...' : 'MINT TOKEN'}
+                        {isDeployLoading ? 'MINTING...' : 'MINT TOKEN'}
                       </Button>
                     )}
                   </>
