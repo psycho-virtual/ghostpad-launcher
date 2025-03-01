@@ -141,7 +141,9 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
     }
 
     try {
-      write();
+      write({
+        methodName: 'Tornado Deposit'
+      });
       return true;
     } catch (error) {
       addOutput(`Error processing deposit: ${error.message || error}`, 'system', true);
