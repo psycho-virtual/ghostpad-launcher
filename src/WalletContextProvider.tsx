@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { WagmiConfig, createConfig, configureChains } from 'wagmi';
 import { sepolia, mainnet } from 'wagmi/chains';
 import { publicProvider } from 'wagmi/providers/public';
@@ -45,39 +45,74 @@ const isLocalNetworkAvailable = async () => {
   }
 };
 
-// Configure chains - local first, then public networks
-const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [localNetwork, sepolia, mainnet],
-  [
-    // Use local provider first when available
-    jsonRpcProvider({
-      rpc: (chain) => {
-        if (chain.id === localNetwork.id)
-          return { http: 'http://127.0.0.1:8545' };
-        return null;
-      },
-    }),
-    publicProvider(), // Fallback for other networks
-  ]
-);
-
-const config = createConfig({
-  autoConnect: true,
-  connectors: [
-    new InjectedConnector({ 
-      chains,
-      options: {
-        shimDisconnect: true,
-      }
-    }),
-  ],
-  publicClient,
-  webSocketPublicClient,
-});
-
+// Determine chains order based on preferred network
 export function WalletContextProvider({ children }: { children: React.ReactNode }) {
+  const [preferLocal, setPreferLocal] = useState(false);
+  const [config, setConfig] = useState<any>(null);
+
+  useEffect(() => {
+    const init = async () => {
+      // Check if local network is available
+      const localAvailable = await isLocalNetworkAvailable();
+      
+      // Configure chains - Sepolia first by default, local first if preferred
+      const { chains, publicClient, webSocketPublicClient } = configureChains(
+        // If local is available and preferred, put it first
+        localAvailable 
+          ? (preferLocal ? [localNetwork, sepolia, mainnet] : [sepolia, mainnet, localNetwork])
+          : [sepolia, mainnet],
+        [
+          // Use local provider when needed
+          jsonRpcProvider({
+            rpc: (chain) => {
+              if (chain.id === localNetwork.id)
+                return { http: 'http://127.0.0.1:8545' };
+              return null;
+            },
+          }),
+          publicProvider(), // Fallback for public networks
+        ]
+      );
+
+      // Create the configuration
+      const wagmiConfig = createConfig({
+        autoConnect: true,
+        connectors: [
+          new InjectedConnector({ 
+            chains,
+            options: {
+              shimDisconnect: true,
+            }
+          }),
+        ],
+        publicClient,
+        webSocketPublicClient,
+      });
+
+      setConfig(wagmiConfig);
+    };
+
+    init();
+  }, [preferLocal]);
+
+  // Show loading state while config is being initialized
+  if (!config) {
+    return <div>Loading wallet configuration...</div>;
+  }
+
   return (
     <WagmiConfig config={config}>
+      {/* Optional UI to toggle network preference */}
+      <div className="fixed top-2 left-2 z-50 text-xs bg-ghost-dark/80 p-1 rounded">
+        <label className="flex items-center gap-1">
+          <input 
+            type="checkbox" 
+            checked={preferLocal}
+            onChange={() => setPreferLocal(!preferLocal)}
+          />
+          Prefer local network
+        </label>
+      </div>
       {children}
     </WagmiConfig>
   );

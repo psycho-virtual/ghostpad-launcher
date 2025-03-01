@@ -1,0 +1,13 @@
+{
+    "contracts": {
+      "tokenTemplate": "0x50BEd4a5d7c871615468F95cBD831fd6dA6b57FA",
+      "ghostPad": "0xde81010728E87501302DCd49DCC5297079f42130",
+      "uniswapHandler": "0x208f3b663F8f05DC4933582392288F1eCbAa518C",
+      "uniswapRouter": "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3"
+    },
+    "tornadoInstances": {
+      "tornadoInstance0ETH": "0x6c3BAa7F72fA4a3320FA9A36ac5d9b00bFF1E60e",
+      "tornadoInstance1ETH": "0xa121A0E7198B33ac8970f8E9c413850d2113f3eF",
+      "tornadoInstance10ETH": "0xfE2B3bC8157D235991B827766e1b39B596C6B2f7"
+    }
+  }

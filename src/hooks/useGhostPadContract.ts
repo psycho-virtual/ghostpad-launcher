@@ -1,11 +1,8 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useAccount, useContractWrite, usePrepareContractWrite, useWaitForTransaction, useContractEvent } from 'wagmi';
-import contractAddresses from '../../smart_contract_address.local.json';
+import { useContractAddresses } from '../utils/contractAddresses';
 import ghostPadAbi from '../../ghostpad-contract/out/GhostPad.sol/GhostPad.json';
 import { ethers } from 'ethers';
-
-// Get contract address from the JSON file
-const ghostPadAddress = contractAddresses.contracts.ghostPad;
 
 // Define types that match the contract structs
 export interface TokenData {
@@ -49,6 +46,11 @@ export const useGhostPadContract = (
   onTokenDeployed?: (result: TokenDeploymentResult) => void
 ) => {
   const { address } = useAccount();
+  const { getAddress } = useContractAddresses();
+  
+  // Get contract address from the utility function for current network
+  const ghostPadAddress = getAddress('ghostPad');
+  
   const [isSuccess, setIsSuccess] = useState(false);
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployedTokenInfo, setDeployedTokenInfo] = useState<TokenDeploymentResult | null>(null);
@@ -109,16 +111,18 @@ export const useGhostPadContract = (
       console.log("TokenDeployed event detected:", logs);
       if (logs && logs.length > 0) {
         const log = logs[0];
-        const eventData = log.args as unknown as {
-          tokenAddress: string;
-          name: string;
-          symbol: string;
+        const eventData = log as unknown as {
+          args: {
+            tokenAddress: string;
+            name: string;
+            symbol: string;
+          }
         };
         
-        if (eventData) {
-          const tokenAddress = eventData.tokenAddress?.toString();
-          const tokenName = eventData.name?.toString();
-          const tokenSymbol = eventData.symbol?.toString();
+        if (eventData && eventData.args) {
+          const tokenAddress = eventData.args.tokenAddress?.toString();
+          const tokenName = eventData.args.name?.toString();
+          const tokenSymbol = eventData.args.symbol?.toString();
           
           console.log("Token information from event:", {
             address: tokenAddress,

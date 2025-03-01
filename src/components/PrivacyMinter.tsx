@@ -6,12 +6,13 @@ import { useTornadoDeposit } from '@/hooks/useTornadoDeposit';
 import { formatCommitment, parseJsonFile, validateTokenInfo } from '@/utils/privacyUtils';
 import { parseEther } from 'ethers';
 import { useGhostPadContract, TokenData, ProofData } from '../hooks/useGhostPadContract';
-import contractAddresses from '../../smart_contract_address.local.json';
+import { useContractAddresses } from '../utils/contractAddresses';
 import { useAccount } from 'wagmi';
 
-const ghostPadAddress = contractAddresses.contracts.ghostPad;
-
 const PrivacyMinter = ({ onClose }) => {
+  const { getAddress } = useContractAddresses();
+  const ghostPadAddress = getAddress('ghostPad');
+
   // Workflow state
   const [mode, setMode] = useState('deposit'); // 'deposit' or 'mint'
   const [step, setStep] = useState(1); // Step within each mode (1, 2, or 3)
