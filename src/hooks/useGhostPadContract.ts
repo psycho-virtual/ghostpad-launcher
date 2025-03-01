@@ -17,6 +17,7 @@ export interface TokenData {
   liquidityLockPeriod: number;
   useProtocolFee: boolean;
   vestingEnabled: boolean;
+  owner: string;
 }
 
 export interface ProofData {
@@ -99,45 +100,44 @@ export const useGhostPadContract = (
     },
   });
 
-
-
-
-
-
-
   // Also listen for the TokenDeployed event as a fallback
   useContractEvent({
-    address: ghostPadAddress,
+    address: ghostPadAddress as `0x${string}`,
     abi: ghostPadAbi.abi,
     eventName: 'TokenDeployed',
     listener(logs) {
       console.log("TokenDeployed event detected:", logs);
-      if (logs && logs.length > 0 && logs[0].args) {
-        // Extract all relevant fields from the event
-        const tokenAddress = logs[0].args.tokenAddress?.toString();
-        const tokenName = logs[0].args.name?.toString();
-        const tokenSymbol = logs[0].args.symbol?.toString();
+      if (logs && logs.length > 0) {
+        const log = logs[0];
+        const eventData = log.args as unknown as {
+          tokenAddress: string;
+          name: string;
+          symbol: string;
+        };
         
-        console.log("Token information from event:", {
-          address: tokenAddress,
-          name: tokenName,
-          symbol: tokenSymbol
-        });
-        
-        if (tokenAddress) {
-          // Create token deployment result object
-          const deploymentResult: TokenDeploymentResult = {
-            tokenAddress,
-            tokenName,
-            tokenSymbol
-          };
+        if (eventData) {
+          const tokenAddress = eventData.tokenAddress?.toString();
+          const tokenName = eventData.name?.toString();
+          const tokenSymbol = eventData.symbol?.toString();
           
-          // Update state
-          setDeployedTokenAddress(tokenAddress);
-          setDeployedTokenInfo(deploymentResult);
+          console.log("Token information from event:", {
+            address: tokenAddress,
+            name: tokenName,
+            symbol: tokenSymbol
+          });
           
-          // Call callback with complete information
-          if (onTokenDeployed) onTokenDeployed(deploymentResult);
+          if (tokenAddress) {
+            const deploymentResult: TokenDeploymentResult = {
+              tokenAddress,
+              tokenName,
+              tokenSymbol
+            };
+            
+            setDeployedTokenAddress(tokenAddress);
+            setDeployedTokenInfo(deploymentResult);
+            
+            if (onTokenDeployed) onTokenDeployed(deploymentResult);
+          }
         }
       }
     },

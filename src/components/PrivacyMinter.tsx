@@ -7,6 +7,7 @@ import { formatCommitment, parseJsonFile, validateTokenInfo } from '@/utils/priv
 import { parseEther } from 'ethers';
 import { useGhostPadContract, TokenData, ProofData } from '../hooks/useGhostPadContract';
 import contractAddresses from '../../smart_contract_address.local.json';
+import { useAccount } from 'wagmi';
 
 const ghostPadAddress = contractAddresses.contracts.ghostPad;
 
@@ -42,6 +43,9 @@ const PrivacyMinter = ({ onClose }) => {
     tokenData: null,
     proofData: null
   });
+
+  // Add this with your other hooks near the top of the component
+  const { address } = useAccount();
 
   // Setup contract interaction
   const { 
@@ -260,10 +264,12 @@ const PrivacyMinter = ({ onClose }) => {
         throw new Error('No valid commitment data found');
       }
 
+      // Use the address from the hook at component level
       // Create TokenData struct for the contract
       const tokenData: TokenData = {
         name: tokenName,
         symbol: tokenTicker,
+        owner: address, // Use the address from the hook
         initialSupply: parseEther('1000000').toString(), // 1M tokens with 18 decimals
         description: tokenDescription,
         burnEnabled: true,
@@ -295,7 +301,7 @@ const PrivacyMinter = ({ onClose }) => {
       addOutput('Error preparing transaction: ' + (error.message || error), 'system', true);
       return false;
     }
-  }, [tokenName, tokenTicker, tokenDescription, amount, addOutput, getTornadoInstanceIndex]);
+  }, [tokenName, tokenTicker, tokenDescription, amount, addOutput, getTornadoInstanceIndex, address]);
 
   /**
    * Generate a zero-knowledge proof for token minting

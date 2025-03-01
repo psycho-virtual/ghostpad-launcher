@@ -178,11 +178,6 @@ export const ConnectWallet = () => {
               {isConnecting ? "Connecting..." : "Connect Wallet"}
             </Button>
             
-            {isLocalAvailable && (
-              <div className="text-xs text-center text-ghost-primary mt-1">
-                Local development network available
-              </div>
-            )}
           </div>
         )}
 
