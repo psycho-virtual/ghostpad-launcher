@@ -44,7 +44,8 @@ const PrivacyMinter = ({ onClose }) => {
     depositData,
     generateCommitment,
     prepareDepositData,
-    prepareWithdrawData
+    prepareWithdrawData,
+    downloadCommitmentData
   } = useCommitmentGenerator();
 
   // Use tornado deposit hook
@@ -567,14 +568,26 @@ const PrivacyMinter = ({ onClose }) => {
                       </Button>
                     )}
                     {step === 2 && (
-                      <Button
-                        onClick={handleSubmitDeposit}
-                        disabled={loading}
-                        className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
-                        variant="outline"
-                      >
-                        {loading ? 'PROCESSING...' : 'SUBMIT DEPOSIT'}
-                      </Button>
+                      <div className="flex flex-col space-y-3">
+                        {commitment && (
+                          <Button
+                            onClick={() => downloadCommitmentData(`tornado-deposit-${amount}ETH-${Date.now()}.json`)}
+                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg"
+                            variant="outline"
+                          >
+                            DOWNLOAD COMMITMENT DATA
+                          </Button>
+                        )}
+                        
+                        <Button
+                          onClick={handleSubmitDeposit}
+                          disabled={loading}
+                          className="w-full bg-ghost-primary hover:bg-ghost-primary/80 text-ghost-darker font-bold py-3 px-6 rounded-lg disabled:opacity-50"
+                          variant="outline"
+                        >
+                          {loading ? 'PROCESSING...' : 'SUBMIT DEPOSIT'}
+                        </Button>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -609,7 +622,7 @@ const PrivacyMinter = ({ onClose }) => {
                     {mode === 'deposit' && (
                       <Button
                         onClick={() => {
-                          downloadCommitmentData(amount);
+                          downloadCommitmentData(`tornado-deposit-${amount}ETH-${Date.now()}.json`);
                           addOutput('Commitment data downloaded as JSON', 'system', false, true);
                         }}
                         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg"

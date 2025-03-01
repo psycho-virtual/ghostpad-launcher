@@ -129,6 +129,49 @@ export function useCommitmentGenerator() {
     };
   };
 
+  /**
+   * Download the commitment data as a JSON file
+   * @param filename Optional custom filename (defaults to 'tornado-deposit-data.json')
+   * @returns boolean indicating success
+   */
+  const downloadCommitmentData = (filename = 'tornado-deposit-data.json') => {
+    if (!depositData) {
+      setError('No deposit data available. Generate a commitment first.');
+      return false;
+    }
+    
+    try {
+      // Prepare data for download with additional metadata
+      const downloadData = {
+        ...depositData,
+        generatedAt: new Date().toISOString(),
+        instructions: "Keep this file secure! You'll need it to withdraw your funds."
+      };
+      
+      // Convert to JSON and create a Blob
+      const dataStr = JSON.stringify(downloadData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      // Create download link and trigger download
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (err) {
+      console.error("Failed to download commitment data:", err);
+      setError('Failed to download commitment data');
+      return false;
+    }
+  };
+
   return {
     loading,
     commitment,
@@ -136,6 +179,7 @@ export function useCommitmentGenerator() {
     depositData,
     generateCommitment,
     prepareDepositData,
-    prepareWithdrawData
+    prepareWithdrawData,
+    downloadCommitmentData
   };
 }
