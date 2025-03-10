@@ -1,0 +1,139 @@
+{
+  "hash": "6c56fffe",
+  "configHash": "4de9ec51",
+  "lockfileHash": "5e5bd1a7",
+  "browserHash": "62536cab",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "482d4e42",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "ad6d260c",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "419c7dc9",
+      "needsInterop": true
+    },
+    "buffer": {
+      "src": "../../node_modules/buffer/index.js",
+      "file": "buffer.js",
+      "fileHash": "a48e399b",
+      "needsInterop": true
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "0a882178",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "79abbb38",
+      "needsInterop": false
+    },
+    "wagmi": {
+      "src": "../../node_modules/wagmi/dist/index.js",
+      "file": "wagmi.js",
+      "fileHash": "cc9a2f15",
+      "needsInterop": false
+    },
+    "wagmi/chains": {
+      "src": "../../node_modules/wagmi/dist/chains.js",
+      "file": "wagmi_chains.js",
+      "fileHash": "61e663dd",
+      "needsInterop": false
+    },
+    "wagmi/providers/public": {
+      "src": "../../node_modules/wagmi/dist/providers/public.js",
+      "file": "wagmi_providers_public.js",
+      "fileHash": "0093dce0",
+      "needsInterop": false
+    },
+    "wagmi/providers/alchemy": {
+      "src": "../../node_modules/wagmi/dist/providers/alchemy.js",
+      "file": "wagmi_providers_alchemy.js",
+      "fileHash": "a32be3a9",
+      "needsInterop": false
+    },
+    "wagmi/providers/jsonRpc": {
+      "src": "../../node_modules/wagmi/dist/providers/jsonRpc.js",
+      "file": "wagmi_providers_jsonRpc.js",
+      "fileHash": "2d0032d2",
+      "needsInterop": false
+    },
+    "wagmi/connectors/metaMask": {
+      "src": "../../node_modules/wagmi/dist/connectors/metaMask.js",
+      "file": "wagmi_connectors_metaMask.js",
+      "fileHash": "b3baa70b",
+      "needsInterop": false
+    },
+    "wagmi/connectors/coinbaseWallet": {
+      "src": "../../node_modules/wagmi/dist/connectors/coinbaseWallet.js",
+      "file": "wagmi_connectors_coinbaseWallet.js",
+      "fileHash": "07f0a62f",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "dist-XWD4WWXF": {
+      "file": "dist-XWD4WWXF.js"
+    },
+    "ccip-V23722QT": {
+      "file": "ccip-V23722QT.js"
+    },
+    "secp256k1-XXNURLTL": {
+      "file": "secp256k1-XXNURLTL.js"
+    },
+    "ens-HHHCTLGR": {
+      "file": "ens-HHHCTLGR.js"
+    },
+    "chunk-Y5FYI5LT": {
+      "file": "chunk-Y5FYI5LT.js"
+    },
+    "chunk-67RNNF6L": {
+      "file": "chunk-67RNNF6L.js"
+    },
+    "chunk-XA4QV7PB": {
+      "file": "chunk-XA4QV7PB.js"
+    },
+    "chunk-FEESO44D": {
+      "file": "chunk-FEESO44D.js"
+    },
+    "chunk-IAC46XNN": {
+      "file": "chunk-IAC46XNN.js"
+    },
+    "chunk-4AJFHBB3": {
+      "file": "chunk-4AJFHBB3.js"
+    },
+    "chunk-RTIUDPRY": {
+      "file": "chunk-RTIUDPRY.js"
+    },
+    "chunk-UBJSKBVJ": {
+      "file": "chunk-UBJSKBVJ.js"
+    },
+    "chunk-ISORQZZP": {
+      "file": "chunk-ISORQZZP.js"
+    },
+    "chunk-IC5XONBN": {
+      "file": "chunk-IC5XONBN.js"
+    },
+    "chunk-6TZQWLPD": {
+      "file": "chunk-6TZQWLPD.js"
+    },
+    "chunk-INSL3L4T": {
+      "file": "chunk-INSL3L4T.js"
+    },
+    "chunk-U5MFFDUF": {
+      "file": "chunk-U5MFFDUF.js"
+    }
+  }
+}

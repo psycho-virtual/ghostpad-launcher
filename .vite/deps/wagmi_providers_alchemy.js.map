@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../node_modules/@wagmi/core/dist/providers/alchemy.js"],
+  "sourcesContent": ["import \"../chunk-MQXBDTVK.js\";\n\n// src/providers/alchemy.ts\nfunction alchemyProvider({\n  apiKey\n}) {\n  return function(chain) {\n    const baseHttpUrl = chain.rpcUrls.alchemy?.http[0];\n    const baseWsUrl = chain.rpcUrls.alchemy?.webSocket?.[0];\n    if (!baseHttpUrl)\n      return null;\n    return {\n      chain: {\n        ...chain,\n        rpcUrls: {\n          ...chain.rpcUrls,\n          default: { http: [`${baseHttpUrl}/${apiKey}`] }\n        }\n      },\n      rpcUrls: {\n        http: [`${baseHttpUrl}/${apiKey}`],\n        webSocket: [`${baseWsUrl}/${apiKey}`]\n      }\n    };\n  };\n}\nexport {\n  alchemyProvider\n};\n"],
+  "mappings": ";;;;;AAGA,SAAS,gBAAgB;AAAA,EACvB;AACF,GAAG;AACD,SAAO,SAAS,OAAO;AANzB;AAOI,UAAM,eAAc,WAAM,QAAQ,YAAd,mBAAuB,KAAK;AAChD,UAAM,aAAY,iBAAM,QAAQ,YAAd,mBAAuB,cAAvB,mBAAmC;AACrD,QAAI,CAAC;AACH,aAAO;AACT,WAAO;AAAA,MACL,OAAO;AAAA,QACL,GAAG;AAAA,QACH,SAAS;AAAA,UACP,GAAG,MAAM;AAAA,UACT,SAAS,EAAE,MAAM,CAAC,GAAG,eAAe,QAAQ,EAAE;AAAA,QAChD;AAAA,MACF;AAAA,MACA,SAAS;AAAA,QACP,MAAM,CAAC,GAAG,eAAe,QAAQ;AAAA,QACjC,WAAW,CAAC,GAAG,aAAa,QAAQ;AAAA,MACtC;AAAA,IACF;AAAA,EACF;AACF;",
+  "names": []
+}
