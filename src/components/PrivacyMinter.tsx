@@ -37,9 +37,9 @@ const PrivacyMinter = ({ onClose }) => {
   const outputEndRef = useRef(null);
 
   // Component level hooks for contract interaction
-  const [mintParams, setMintParams] = useState<{ 
-    tokenData: TokenData | null, 
-    proofData: ProofData | null 
+  const [mintParams, setMintParams] = useState<{
+    tokenData: TokenData | null,
+    proofData: ProofData | null
   }>({
     tokenData: null,
     proofData: null
@@ -49,30 +49,30 @@ const PrivacyMinter = ({ onClose }) => {
   const { address } = useAccount();
 
   // Setup contract interaction
-  const { 
-    deployToken, 
-    isLoading: isDeployLoading, 
+  const {
+    deployToken,
+    isLoading: isDeployLoading,
     isSuccess: isDeploySuccess,
-    deployedTokenAddress  } = useGhostPadContract(
-    mintParams.tokenData,
-    mintParams.proofData,
-    (txHash) => {
-      addOutput(`Transaction submitted! Hash: ${txHash.substring(0, 10)}...`, 'system');
-      addOutput(`Token ${tokenName} (${tokenTicker}) minting initiated!`, 'system', false, true);
-    },
-    (error) => {
-      addOutput(`Error: ${error.message}`, 'system', true);
-    },
-    (result) => {
-      // This callback is triggered when the token is deployed
-      addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
-      addOutput(`✅ TOKEN DEPLOYMENT SUCCESSFUL`, 'system', false, true);
-      addOutput(`Token Name: ${result.tokenName}`, 'system', false, true);
-      addOutput(`Token Symbol: ${result.tokenSymbol}`, 'system', false, true);
-      addOutput(`Token Address: ${result.tokenAddress}`, 'system', false, true);
-      addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
-    }
-  );
+    deployedTokenAddress } = useGhostPadContract(
+      mintParams.tokenData,
+      mintParams.proofData,
+      (txHash) => {
+        addOutput(`Transaction submitted! Hash: ${txHash.substring(0, 10)}...`, 'system');
+        addOutput(`Token ${tokenName} (${tokenTicker}) minting initiated!`, 'system', false, true);
+      },
+      (error) => {
+        addOutput(`Error: ${error.message}`, 'system', true);
+      },
+      (result) => {
+        // This callback is triggered when the token is deployed
+        addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
+        addOutput(`✅ TOKEN DEPLOYMENT SUCCESSFUL`, 'system', false, true);
+        addOutput(`Token Name: ${result.tokenName}`, 'system', false, true);
+        addOutput(`Token Symbol: ${result.tokenSymbol}`, 'system', false, true);
+        addOutput(`Token Address: ${result.tokenAddress}`, 'system', false, true);
+        addOutput(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'system');
+      }
+    );
 
   // Effect to handle success
   useEffect(() => {
@@ -81,12 +81,12 @@ const PrivacyMinter = ({ onClose }) => {
     }
   }, [isDeploySuccess]);
 
-    /**
-   * Add a line to the console output
-   */
-    const addOutput = useCallback((content, type = 'system', isError = false, isSuccess = false) => {
-      setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
-    }, []);
+  /**
+ * Add a line to the console output
+ */
+  const addOutput = useCallback((content, type = 'system', isError = false, isSuccess = false) => {
+    setOutput(prev => [...prev, { content, type, isError, isSuccess }]);
+  }, []);
 
 
   // And also add a function to help copy the token address
@@ -116,7 +116,7 @@ const PrivacyMinter = ({ onClose }) => {
     isLoading: depositLoading,
     isTxSuccess,
     updateCommitmentData,
-    submitDeposit  
+    submitDeposit
   } = useTornadoDeposit(amount, addOutput);
 
   // Update loading state
@@ -280,11 +280,11 @@ const PrivacyMinter = ({ onClose }) => {
       };
 
       const instanceIndex = getTornadoInstanceIndex(amount);
-      
+
       // Create ProofData struct for the contract
       const proofData: ProofData = {
         instanceIndex: instanceIndex,
-        proof: savedDepositData.proof || "0x", 
+        proof: savedDepositData.proof || "0x",
         root: savedDepositData.root || "0x0000000000000000000000000000000000000000000000000000000000000000",
         nullifierHash: savedDepositData.nullifierHash,
         recipient: ghostPadAddress, // Set GhostPad contract as recipient
@@ -295,7 +295,7 @@ const PrivacyMinter = ({ onClose }) => {
 
       addOutput(`Using tornado instance index: ${instanceIndex} for ${amount} ETH`, 'system');
       addOutput(`Setting recipient to GhostPad contract: ${ghostPadAddress.substring(0, 8)}...`, 'system');
-      
+
       setMintParams({ tokenData, proofData });
       return true;
     } catch (error) {
@@ -314,11 +314,11 @@ const PrivacyMinter = ({ onClose }) => {
     try {
       // Validate token info
       const validation = validateTokenInfo(tokenName, tokenTicker, tokenDescription);
-      
+
       if (!validation.isValid) {
         throw new Error(`Missing required fields: ${validation.missingRequired.join(', ')}`);
       }
-      
+
       if (validation.missingOptional.length > 0) {
         addOutput(`Warning: Missing optional fields: ${validation.missingOptional.join(', ')}`, 'system');
       }
@@ -362,13 +362,13 @@ const PrivacyMinter = ({ onClose }) => {
       // Add debug output
       addOutput('Debug: Params prepared, calling deployToken function', 'system');
       console.log('Mint params:', mintParams);
-      
+
       // Execute the contract transaction without parameters
       deployToken();
-      
+
       // Additional logging
       addOutput('Transaction function called. Check console for details.', 'system');
-      
+
       // Note: setLoading(false) will happen when isDeployLoading becomes false
     } catch (error) {
       addOutput('Error minting token: ' + (error.message || error), 'system', true);
@@ -387,15 +387,15 @@ const PrivacyMinter = ({ onClose }) => {
     } else if (item.type === 'input') {
       className += ' text-blue-400';
     }
-    
+
     if (item.isError) {
       className += ' text-red-400';
     }
-    
+
     if (item.isSuccess) {
       className += ' text-green-400';
     }
-    
+
     return (
       <div key={index} className={className}>
         {item.content}
@@ -433,20 +433,18 @@ const PrivacyMinter = ({ onClose }) => {
             {/* Mode Selector */}
             <div className="flex gap-4 mb-6">
               <Button
-                onClick={() => {setMode('deposit'); setStep(1);}}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg font-bold text-lg ${
-                  mode === 'deposit' ? 'bg-ghost-primary text-ghost-dark' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
-                }`}
+                onClick={() => { setMode('deposit'); setStep(1); }}
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg font-bold text-lg ${mode === 'deposit' ? 'bg-ghost-primary text-ghost-dark' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
+                  }`}
                 variant="outline"
               >
                 <Shield className="w-5 h-5" />
                 Phase 1: Deposit
               </Button>
               <Button
-                onClick={() => {setMode('mint'); setStep(1);}}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg font-bold text-lg ${
-                  mode === 'mint' ? 'bg-ghost-primary text-ghost-dark' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
-                }`}
+                onClick={() => { setMode('mint'); setStep(1); }}
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg font-bold text-lg ${mode === 'mint' ? 'bg-ghost-primary text-ghost-dark' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
+                  }`}
                 variant="outline"
               >
                 <Coins className="w-5 h-5" />
@@ -464,27 +462,24 @@ const PrivacyMinter = ({ onClose }) => {
                     <div className="flex gap-4 mb-4">
                       <Button
                         onClick={() => setAmount(0.1)}
-                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${
-                          amount === 0.1 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
-                        }`}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${amount === 0.1 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
+                          }`}
                         variant="outline"
                       >
                         0.1 ETH
                       </Button>
                       <Button
                         onClick={() => setAmount(1)}
-                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${
-                          amount === 1 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
-                        }`}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${amount === 1 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
+                          }`}
                         variant="outline"
                       >
                         1 ETH
                       </Button>
                       <Button
                         onClick={() => setAmount(10)}
-                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${
-                          amount === 10 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
-                        }`}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold ${amount === 10 ? 'bg-ghost-primary text-ghost-darker' : 'bg-ghost-dark text-gray-400 hover:bg-ghost-dark/80'
+                          }`}
                         variant="outline"
                       >
                         10 ETH
@@ -702,7 +697,7 @@ const PrivacyMinter = ({ onClose }) => {
                             DOWNLOAD COMMITMENT DATA
                           </Button>
                         )}
-                        
+
                         <Button
                           onClick={handleSubmitDeposit}
                           disabled={loading}
@@ -778,7 +773,7 @@ const PrivacyMinter = ({ onClose }) => {
                 )}
               </div>
             </div>
-            
+
           </div>
         </div>
       </div>

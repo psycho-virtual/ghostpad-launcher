@@ -8,7 +8,10 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:anvil": "anvil",
+    "dev:deploy": "if [ -d \"./ghostpad-contract\" ]; then cd ghostpad-contract && PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 yarn run deploy:dev; else echo \"Warning: ghostpad-contract folder not found. Please download the git submodule of ghostpad-smart-contract.\"; fi",
+    "dev:network:remove": "pkill -f anvil || true && echo \"Anvil network stopped.\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
