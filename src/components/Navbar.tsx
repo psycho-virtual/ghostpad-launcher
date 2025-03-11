@@ -43,12 +43,6 @@ export const Navbar = () => {
         >
           [how it works]
         </button>
-        <a href="#advanced" className="text-sm font-medium hover:text-ghost-primary transition-colors">
-          [advanced]
-        </a>
-        <a href="#support" className="text-sm font-medium hover:text-ghost-primary transition-colors">
-          [support]
-        </a>
         <div className="flex items-center gap-2 ml-1">
           <button
             onClick={handleTwitterClick}
