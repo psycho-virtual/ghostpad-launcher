@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
 import { fundWalletOnAnvil } from '../utils/anvilUtils';
-import { useAccount, useNetwork } from 'wagmi';
+import { useAccount } from 'wagmi';
+import { useSafeNetwork } from '../hooks/useSafeNetwork';
 
 export function DevTools() {
-  const { address } = useAccount();
-  const { chain } = useNetwork();
+  // Safe account access
+  let address;
+  try {
+    const { address: accountAddress } = useAccount();
+    address = accountAddress;
+  } catch (error) {
+    address = undefined;
+  }
+  
+  const { chain, isSupported } = useSafeNetwork();
   const [amountToFund, setAmountToFund] = useState(100);
   const [isFunding, setIsFunding] = useState(false);
   const [message, setMessage] = useState('');
   
-  // Only show in development mode and on local network
-  if (process.env.NODE_ENV !== 'development' || chain?.id !== 31337) {
+  // Only show in development mode and on local network if network is supported
+  if (process.env.NODE_ENV !== 'development' || 
+      (isSupported && chain?.id !== 31337)) {
     return null;
   }
   
@@ -38,6 +48,12 @@ export function DevTools() {
     <div className="fixed bottom-4 right-4 z-40 bg-ghost-dark border border-ghost-primary/30 p-3 rounded-md">
       <h4 className="text-sm font-bold text-ghost-primary mb-2">Developer Tools</h4>
       
+      {!isSupported && (
+        <div className="text-xs text-yellow-400 mb-2">
+          ⚠️ Network connection unavailable
+        </div>
+      )}
+      
       <div className="flex gap-2 mb-2">
         <input
           type="number"
@@ -48,10 +64,10 @@ export function DevTools() {
         />
         <button
           onClick={handleFund}
-          disabled={isFunding || !address}
-          className="bg-ghost-primary/20 hover:bg-ghost-primary/30 px-3 py-1 rounded text-sm"
+          disabled={isFunding || !address || !isSupported}
+          className="bg-ghost-primary/20 hover:bg-ghost-primary/30 px-3 py-1 rounded text-sm disabled:opacity-50"
         >
-          {isFunding ? 'Funding...' : 'Fund Wallet'}
+          {isFunding ? 'Funding...' : !isSupported ? 'Network Unavailable' : 'Fund Wallet'}
         </button>
       </div>
       

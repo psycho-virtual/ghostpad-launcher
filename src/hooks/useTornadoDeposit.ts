@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { usePrepareContractWrite, useContractWrite, useWaitForTransaction, useNetwork } from 'wagmi';
+import { usePrepareContractWrite, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { parseEther } from 'viem';
 import { getTornadoInstanceAddress } from '../config/wagmi';
 import tornadoInstanceABI from '../../ghostpad-contract/out/ITornadoInstance.sol/ITornadoInstance.json';
+import { useSafeNetwork } from './useSafeNetwork';
 
 export type CommitmentData = {
   commitment: string;
@@ -19,7 +20,7 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
   const [commitmentData, setCommitmentData] = useState<CommitmentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnectedToContract, setIsConnectedToContract] = useState(false);
-  const { chain } = useNetwork();
+  const { chain, isSupported } = useSafeNetwork();
 
   // Update contract address when amount changes
   useEffect(() => {
@@ -29,6 +30,11 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
   
   // Log network information
   useEffect(() => {
+    if (!isSupported) {
+      addOutput('Network connection unavailable. Using offline mode.', 'system', true);
+      return;
+    }
+    
     if (chain) {
       addOutput(`Current network: ${chain.name} (Chain ID: ${chain.id})`, 'system');
       
@@ -39,38 +45,58 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
     } else {
       addOutput('Not connected to any network', 'system', true);
     }
-  }, [chain, addOutput]);
+  }, [chain, addOutput, isSupported]);
 
-  // Prepare the contract write transaction
-  const { config, error: prepareError } = usePrepareContractWrite({
-    address: contractAddress as `0x${string}`,
-    abi: tornadoInstanceABI.abi,
-    functionName: 'deposit',
-    args: [commitmentData?.commitment ? 
-      (commitmentData.commitment.startsWith('0x') ? 
-        commitmentData.commitment as `0x${string}` : 
-        `0x${commitmentData.commitment}` as `0x${string}`) : 
-      '0x0000000000000000000000000000000000000000000000000000000000000000'],
-    value: amount ? parseEther(amount.toString()) : BigInt(0),
-    enabled: !!commitmentData?.commitment && amount > 0,
-  });
+  // Only prepare contract write if network is supported
+  let config = {};
+  let prepareError = null;
+  let write = null;
+  let txData = null;
+  let isWriteLoading = false;
+  let writeError = null;
+  let isTxLoading = false;
+  let isTxSuccess = false;
+  let txError = null;
 
-  // Execute the contract write
-  const {
-    data: txData,
-    isLoading: isWriteLoading,
-    write,
-    error: writeError,
-  } = useContractWrite(config);
-
-  // Wait for transaction confirmation
-  const {
-    isLoading: isTxLoading,
-    isSuccess: isTxSuccess,
-    error: txError,
-  } = useWaitForTransaction({
-    hash: txData?.hash,
-  });
+  if (isSupported) {
+    try {
+      // Prepare the contract write transaction
+      const prepareResult = usePrepareContractWrite({
+        address: contractAddress as `0x${string}`,
+        abi: tornadoInstanceABI.abi,
+        functionName: 'deposit',
+        args: [commitmentData?.commitment ? 
+          (commitmentData.commitment.startsWith('0x') ? 
+            commitmentData.commitment as `0x${string}` : 
+            `0x${commitmentData.commitment}` as `0x${string}`) : 
+          '0x0000000000000000000000000000000000000000000000000000000000000000'],
+        value: amount ? parseEther(amount.toString()) : BigInt(0),
+        enabled: !!commitmentData?.commitment && amount > 0,
+      });
+      
+      config = prepareResult.config;
+      prepareError = prepareResult.error;
+      
+      // Execute the contract write
+      const writeResult = useContractWrite(config);
+      write = writeResult.write;
+      txData = writeResult.data;
+      isWriteLoading = writeResult.isLoading;
+      writeError = writeResult.error;
+      
+      // Wait for transaction confirmation
+      const waitResult = useWaitForTransaction({
+        hash: txData?.hash,
+      });
+      
+      isTxLoading = waitResult.isLoading;
+      isTxSuccess = waitResult.isSuccess;
+      txError = waitResult.error;
+    } catch (error) {
+      console.warn('Contract interaction hooks failed:', error);
+      // Keep default values, which means not connected
+    }
+  }
 
   // Track overall loading state
   useEffect(() => {
@@ -79,6 +105,12 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
 
   // Log contract connection status
   useEffect(() => {
+    if (!isSupported) {
+      addOutput(`⚠️ Network connection unavailable, contract operations disabled`, 'system', true);
+      setIsConnectedToContract(false);
+      return;
+    }
+    
     // We consider being connected to the contract if we don't have prepare errors
     // and the write function is available
     const connected = !prepareError && !!write;
@@ -93,7 +125,7 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
       // Only show this if we have data and should be connecting
       addOutput(`⏳ Attempting to connect to contract at ${contractAddress}...`, 'system');
     }
-  }, [prepareError, write, contractAddress, commitmentData, amount, addOutput]);
+  }, [prepareError, write, contractAddress, commitmentData, amount, addOutput, isSupported]);
 
   // Handle errors and success
   useEffect(() => {
@@ -116,6 +148,11 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
 
   const submitDeposit = async () => {
     addOutput(`Submitting ${amount} ETH deposit to contract ${contractAddress}...`, 'input');
+
+    if (!isSupported) {
+      addOutput('Cannot submit transaction. Network connection unavailable.', 'system', true);
+      return false;
+    }
 
     if (!isConnectedToContract) {
       addOutput('Cannot submit transaction. No connection to smart contract.', 'system', true);
@@ -143,6 +180,7 @@ export const useTornadoDeposit = (amount: number, addOutput: (message: string, t
     updateCommitmentData,
     submitDeposit,
     txData,
-    isConnectedToContract
+    isConnectedToContract,
+    isNetworkSupported: isSupported
   };
 }; 

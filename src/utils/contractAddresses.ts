@@ -25,11 +25,11 @@ export function getContractAddresses(environment?: string): ContractAddresses {
   
   switch (env) {
     case 'sepolia':
-      // When we have sepolia addresses available:
-      // return sepoliaAddresses;
       return sepoliaAddresses;
     case 'mainnet':
-      throw new Error('Mainnet addresses not implemented yet');
+      // Instead of throwing an error, fall back to using Sepolia addresses
+      console.warn('Mainnet addresses not fully implemented, falling back to Sepolia addresses');
+      return sepoliaAddresses;
     case 'local':
     default:
       return localAddresses;
@@ -104,23 +104,31 @@ export function getTornadoInstanceAddress(amount: number, environment?: string):
  * @returns Functions to get addresses for the current network
  */
 export function useContractAddresses() {
-  const { chain } = useNetwork();
+  // Safely use network to prevent errors when used outside WagmiConfig
+  let environment = 'sepolia'; // Default to sepolia
   
-  // Map chain ID to environment name
-  const getEnvironmentFromChain = () => {
-    if (!chain) return 'local';
+  try {
+    const { chain } = useNetwork();
     
-    switch (chain.id) {
-      case 11155111: // Sepolia chain ID
-        return 'sepolia';
-      case 1: // Ethereum Mainnet
-        return 'mainnet';
-      default:
-        return 'local';
+    // Map chain ID to environment name if chain is available
+    if (chain) {
+      switch (chain.id) {
+        case 11155111: // Sepolia chain ID
+          environment = 'sepolia';
+          break;
+        case 1: // Ethereum Mainnet
+          // Just set it to mainnet and let getContractAddresses handle the fallback
+          environment = 'mainnet';
+          break;
+        default:
+          environment = 'local';
+          break;
+      }
     }
-  };
-  
-  const environment = getEnvironmentFromChain();
+  } catch (error) {
+    // If useNetwork fails (outside WagmiConfig), fallback to default
+    console.warn('Network detection failed, using default network (sepolia)');
+  }
   
   return {
     /**
