@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAccount, useConnect, useDisconnect, useNetwork, useSwitchNetwork } from "wagmi";
-import { InjectedConnector } from "wagmi/connectors/injected";
-import { isAnvilRunning } from "../utils/networkUtils";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
 
-// Type definitions for the Ethereum window object
+// Type definitions for window object
 declare global {
   interface Window {
-    ethereum?: any;
+    // This would be for any solana-specific window properties
+    solana?: any;
   }
 }
 
@@ -16,65 +18,50 @@ export const ConnectWallet = () => {
   const [showInstructions, setShowInstructions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLocalAvailable, setIsLocalAvailable] = useState<boolean | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
-  // Wagmi hooks
-  const { address, isConnected } = useAccount();
-  const { connect, isLoading: isConnecting } = useConnect({
-    connector: new InjectedConnector(),
-    onError: (err) => {
-      setError(err.message);
-    }
-  });
-  const { disconnect } = useDisconnect();
-  const { chain } = useNetwork();
-  const { chains, switchNetwork, isLoading: isSwitchingNetwork } = useSwitchNetwork({
-    onError: (err) => setError(err.message)
-  });
+  // Wallet hooks from Solana wallet adapter
+  const { publicKey, connected, disconnect } = useWallet();
+  const { connection } = useConnection();
 
-  // Check if local network is available
+  // Check if local Solana validator is running
   useEffect(() => {
-    const checkAnvil = async () => {
-      const running = await isAnvilRunning();
-      setIsLocalAvailable(running);
+    const checkLocalNode = async () => {
+      try {
+        const localConnection = new Connection('http://127.0.0.1:8899');
+        const version = await localConnection.getVersion();
+        setIsLocalAvailable(true);
+      } catch (err) {
+        setIsLocalAvailable(false);
+      }
     };
-    
-    checkAnvil();
+
+    checkLocalNode();
   }, []);
 
-  // Add local network to MetaMask if it's not there already
-  const addLocalNetworkToWallet = async () => {
-    if (!window.ethereum) {
-      setError("MetaMask is not installed");
-      return;
-    }
+  // Fetch wallet balance when connected
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (publicKey && connection) {
+        try {
+          const balance = await connection.getBalance(publicKey);
+          setBalance(balance / 1e9); // Convert lamports to SOL
+        } catch (err) {
+          console.error("Failed to fetch balance:", err);
+          setBalance(null);
+        }
+      } else {
+        setBalance(null);
+      }
+    };
 
-    try {
-      await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: '0x7A69', // 31337 in hex
-          chainName: 'Local Anvil',
-          nativeCurrency: {
-            name: 'Ethereum',
-            symbol: 'ETH',
-            decimals: 18
-          },
-          rpcUrls: ['http://127.0.0.1:8545'],
-          blockExplorerUrls: ['http://localhost:8545']
-        }]
-      });
-      
-      // Then switch to that network
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x7A69' }]
-      });
-      
-    } catch (err) {
-      console.error("Failed to add local network:", err);
-      setError("Failed to add local network to wallet");
+    if (connected) {
+      fetchBalance();
+      // Refresh balance every 15 seconds
+      const interval = setInterval(fetchBalance, 15000);
+      return () => clearInterval(interval);
     }
-  };
+  }, [publicKey, connection, connected]);
 
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
@@ -85,107 +72,79 @@ export const ConnectWallet = () => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
 
-  // Connect wallet using wagmi
-  const connectWallet = async () => {
-    setError(null);
-    connect();
-  };
-
   // Disconnect wallet
   const disconnectWallet = () => {
     disconnect();
   };
 
-  // Show network selector dropdown
-  const [showNetworkSelector, setShowNetworkSelector] = useState(false);
+  // Determine current network
+  const [currentNetwork, setCurrentNetwork] = useState('Devnet');
 
-  const toggleNetworkSelector = () => {
-    setShowNetworkSelector(!showNetworkSelector);
-  };
+  useEffect(() => {
+    if (connection) {
+      // Extract network from RPC URL
+      const rpcUrl = connection.rpcEndpoint;
+      if (rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')) {
+        setCurrentNetwork('Local');
+      } else if (rpcUrl.includes('devnet')) {
+        setCurrentNetwork('Devnet');
+      } else if (rpcUrl.includes('testnet')) {
+        setCurrentNetwork('Testnet');
+      } else if (rpcUrl.includes('mainnet')) {
+        setCurrentNetwork('Mainnet');
+      }
+    }
+  }, [connection]);
 
   return (
     <>
       <div className="fixed top-4 right-4 z-50">
-        {isConnected ? (
+        {connected ? (
           <div className="flex flex-col gap-2">
-            <div className="relative">
-              <Button 
-                onClick={toggleNetworkSelector} 
-                variant="outline"
-                className="bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10 w-full"
-              >
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                {chain?.name || "Unknown Network"}
-                <span className="ml-2">▼</span>
-              </Button>
-              
-              {showNetworkSelector && (
-                <div className="absolute top-full mt-1 right-0 w-full bg-ghost-dark border border-ghost-primary/20 rounded-md shadow-lg overflow-hidden z-50">
-                  {chains.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        switchNetwork?.(c.id);
-                        setShowNetworkSelector(false);
-                      }}
-                      disabled={isSwitchingNetwork || c.id === chain?.id}
-                      className={`w-full px-4 py-2 text-left hover:bg-ghost-primary/10 transition-colors ${
-                        c.id === chain?.id ? 'bg-ghost-primary/20 font-bold' : ''
-                      }`}
-                    >
-                      {c.name}
-                      {c.id === 31337 && <span className="ml-2 text-xs">(Local)</span>}
-                    </button>
-                  ))}
-                  
-                  {/* Add option to connect to local network if it's not in the list */}
-                  {isLocalAvailable && !chains.some(c => c.id === 31337) && (
-                    <button
-                      onClick={() => {
-                        addLocalNetworkToWallet();
-                        setShowNetworkSelector(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-yellow-400 hover:bg-ghost-primary/10 transition-colors border-t border-ghost-primary/20"
-                    >
-                      Add Local Network
-                      <span className="ml-2 text-xs">(Development)</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            
             <Button
-              onClick={disconnectWallet}
+              className="bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10 w-full"
               variant="outline"
-              className="bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10"
             >
-              {address ? formatAddress(address) : "Connected"}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-2">
-                <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clipRule="evenodd" />
-                <path fillRule="evenodd" d="M19 10a.75.75 0 00-.75-.75H8.704l1.048-.943a.75.75 0 10-1.004-1.114l-2.5 2.25a.75.75 0 000 1.114l2.5 2.25a.75.75 0 101.004-1.114l-1.048-.943h9.546A.75.75 0 0019 10z" clipRule="evenodd" />
-              </svg>
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+              {currentNetwork}
             </Button>
+
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10"
+                variant="outline"
+              >
+                {balance !== null ? `${balance.toFixed(4)} SOL` : 'Loading...'}
+              </Button>
+
+              <Button
+                onClick={disconnectWallet}
+                variant="outline"
+                className="bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10"
+              >
+                {publicKey ? formatAddress(publicKey.toString()) : "Connected"}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 ml-2">
+                  <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M19 10a.75.75 0 00-.75-.75H8.704l1.048-.943a.75.75 0 10-1.004-1.114l-2.5 2.25a.75.75 0 000 1.114l2.5 2.25a.75.75 0 101.004-1.114l-1.048-.943h9.546A.75.75 0 0019 10z" clipRule="evenodd" />
+                </svg>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <Button
-              onClick={connectWallet}
-              variant="outline"
-              className="bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10"
-              disabled={isConnecting}
-            >
-              {isConnecting ? "Connecting..." : "Connect Wallet"}
-            </Button>
-            
+            {/* Use the WalletMultiButton component from Solana wallet adapter */}
+            <WalletMultiButton
+              className="py-2 px-4 bg-ghost-dark border border-ghost-primary/20 text-white hover:bg-ghost-primary/10 rounded-md"
+            />
+            {/* You can add additional styling and customization as needed */}
           </div>
         )}
 
         {error && (
           <div className="text-sm text-red-500 mt-2 bg-ghost-dark/80 p-2 rounded border border-red-500/20">
             {error}
-            <button 
-              onClick={() => setError(null)} 
+            <button
+              onClick={() => setError(null)}
               className="ml-2 text-xs underline"
             >
               Dismiss
@@ -211,7 +170,7 @@ export const ConnectWallet = () => {
             <div className="space-y-4">
               <div className="border-l-4 border-ghost-primary pl-4">
                 <p className="text-white">
-                  <span className="text-ghost-primary font-bold">1.</span> Connect your wallet and click "Launch Application"
+                  <span className="text-ghost-primary font-bold">1.</span> Connect your Solana wallet and click "Launch Application"
                 </p>
               </div>
 
